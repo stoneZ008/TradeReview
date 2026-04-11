@@ -22,8 +22,6 @@ function App() {
   const [activeChart, setActiveChart] = useState('kline');
   const [activeTab, setActiveTab] = useState('signals');
   const [backtestResult, setBacktestResult] = useState(null);
-  const [searchResults, setSearchResults] = useState([]);
-  const [showSearch, setShowSearch] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
 
   // 加载自选股
@@ -39,27 +37,6 @@ function App() {
     } catch (e) {
       console.error('加载自选股失败:', e);
     }
-  };
-
-  const searchStock = async (keyword) => {
-    if (!keyword || keyword.length < 2) {
-      setSearchResults([]);
-      setShowSearch(false);
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/search?keyword=${keyword}`);
-      const data = await res.json();
-      setSearchResults(data.data || []);
-      setShowSearch(true);
-    } catch (e) {
-      console.error('搜索失败:', e);
-    }
-  };
-
-  const selectStock = (stock) => {
-    setSymbol(stock['代码']);
-    setShowSearch(false);
   };
 
   const selectWatchStock = (stock) => {
@@ -178,8 +155,8 @@ function App() {
     const dates = data.map(d => d.date);
     const candleData = data.map(d => [d.open, d.close, d.low, d.high]);
     
-    // 标记买卖点 - 买入信号强度 >= 10% 才显示
-    const buyPoints = data.filter(d => d.signal === 1 && d.buy_score >= 0.1).map(d => ({
+    // 标记买卖点 - 买入信号强度 >= 8% 才显示（与后端阈值一致）
+    const buyPoints = data.filter(d => d.signal === 1 && d.buy_score >= 0.08).map(d => ({
       name: `B`,
       coord: [d.date, d.low],
       symbol: 'circle',
@@ -1053,24 +1030,9 @@ function App() {
             <input
               className="input"
               value={symbol}
-              onChange={(e) => {
-                setSymbol(e.target.value);
-                searchStock(e.target.value);
-              }}
-              onFocus={() => searchStock(symbol)}
-              onBlur={() => setTimeout(() => setShowSearch(false), 200)}
-              placeholder="输入代码或名称"
+              onChange={(e) => setSymbol(e.target.value)}
+              placeholder="输入代码"
             />
-            {showSearch && searchResults.length > 0 && (
-              <div className="search-results">
-                {searchResults.map((s, i) => (
-                  <div key={i} className="search-item" onClick={() => selectStock(s)}>
-                    <span className="stock-code">{s['代码']}</span>
-                    <span className="stock-name">{s['名称']}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
           
           <div className="input-group">

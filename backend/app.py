@@ -31,46 +31,21 @@ def get_stock_data(symbol):
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
     
-    # 为了正确计算技术指标，需要获取额外的历史数据
-    # MA60需要60天，MACD需要26天EMA，KDJ需要9天
-    # 额外获取60天历史数据确保指标准确
-    from datetime import datetime, timedelta
-    if start_date:
-        try:
-            start_dt = datetime.strptime(start_date, '%Y%m%d')
-            # 提前60个交易日（约3个月）
-            extended_start = (start_dt - timedelta(days=90)).strftime('%Y%m%d')
-        except:
-            extended_start = start_date
-    else:
-        extended_start = start_date
+    # 直接获取用户请求范围的数据（与回测API一致）
+    df = fetch_stock_data(symbol, start_date, end_date)
     
-    # 获取包含历史数据的数据
-    df_full = fetch_stock_data(symbol, extended_start, end_date)
-    
-    if df_full.empty:
+    if df.empty:
         return jsonify({'error': '无法获取数据'}), 404
     
     # 获取股票名称
     stock_info = get_stock_info(symbol)
     stock_name = stock_info['name'] if stock_info else ''
     
-    # 计算技术指标（使用完整数据）
-    df_with_indicators = calculate_all_indicators(df_full)
+    # 计算技术指标
+    df_with_indicators = calculate_all_indicators(df)
     
-    # 生成信号（使用完整数据）
-    signals_df = generate_trading_signals(df_with_indicators, {'buy_threshold': 0.08, 'sell_threshold': 0.08})
-    
-    # 过滤到用户请求的日期范围
-    if start_date and end_date:
-        try:
-            start_dt = datetime.strptime(start_date, '%Y%m%d')
-            end_dt = datetime.strptime(end_date, '%Y%m%d')
-            mask = (df_with_indicators.index >= start_dt) & (df_with_indicators.index <= end_dt)
-            df_with_indicators = df_with_indicators[mask]
-            signals_df = signals_df[mask]
-        except:
-            pass
+    # 生成信号（与回测API一致，卖出阈值0.12）
+    signals_df = generate_trading_signals(df_with_indicators, {'buy_threshold': 0.08, 'sell_threshold': 0.12})
     
     # 合并结果
     result_df = df_with_indicators.copy()

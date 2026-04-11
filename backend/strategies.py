@@ -219,6 +219,48 @@ class KDJGoldenCross(TradingStrategy):
         
         return signals
 
+class BottomReversal(TradingStrategy):
+    """
+    底部反转买入策略
+    条件: 价格创新低后出现阳线，MACD柱状图由负转正，成交量放大
+    适用于空头趋势末端的超跌反弹捕捉
+    """
+    def __init__(self, weight=1.5, lookback=10):
+        super().__init__('底部反转', weight, strategy_type='buy')
+        self.lookback = lookback
+    
+    def generate_signals(self, df):
+        signals = pd.Series(0, index=df.index)
+        
+        if len(df) < self.lookback + 1:
+            return signals
+        
+        for i in range(self.lookback, len(df)):
+            # 1. 前N日内创新低（当前最低价接近区间最低价）
+            window_low = df['low'].iloc[i - self.lookback:i].min()
+            near_bottom = df['low'].iloc[i] <= window_low * 1.01  # 允许1%误差
+            
+            # 2. 出现阳线（收盘价高于开盘价）
+            yang_candle = df['close'].iloc[i] > df['open'].iloc[i]
+            
+            # 3. MACD柱状图由负转正（或从更负变为更正）
+            macd_hist_rising = df['macd_hist'].iloc[i] > df['macd_hist'].iloc[i - 1]
+            macd_hist_improving = (df['macd_hist'].iloc[i] > 0) or \
+                                  (df['macd_hist'].iloc[i] > df['macd_hist'].iloc[i - 1] * 1.5)
+            
+            # 4. 成交量放大（量比 >= 1.5）
+            volume_expand = df['vol_ratio'].iloc[i] >= 1.5
+            
+            # 5. RSI从超卖区回升（RSI < 40 且正在上升）
+            rsi_recovering = (df['rsi'].iloc[i] < 40) and \
+                            (df['rsi'].iloc[i] > df['rsi'].iloc[i - 1])
+            
+            # 组合条件：创新低 + 阳线 + (MACD改善 或 RSI回升) + 放量
+            if near_bottom and yang_candle and (macd_hist_improving or rsi_recovering) and volume_expand:
+                signals.iloc[i] = 1
+        
+        return signals
+
 # ========================================
 # 3. 卖出策略
 # ========================================
@@ -414,7 +456,7 @@ class CompositeStrategy:
         """
         默认策略配置
         """
-        # 买入策略（权重合计：7.9）
+        # 买入策略（权重合计：9.4）
         buy_strategies = [
             MACDGoldenCross(weight=1.5),
             BOLLSupport(weight=1.2),
@@ -422,7 +464,7 @@ class CompositeStrategy:
             VolumeBreakout(weight=1.0),
             RSIOversold(weight=1.0),
             KDJGoldenCross(weight=1.0),
-            # KLinePatternStrategy(weight=0.8),
+            BottomReversal(weight=1.5),  # 底部反转策略，捕捉超跌反弹
         ]
         
         # 卖出策略（权重合计：8.7）
@@ -450,13 +492,23 @@ class CompositeStrategy:
         buy_score = pd.Series(0.0, index=df.index)
         sell_score = pd.Series(0.0, index=df.index)
         
+        # 允许在空头趋势下生效的超跌反弹策略名称
+        bearish_allowed_buy_strategies = ['布林带下轨支撑', 'RSI超卖', 'KDJ金叉', '底部反转']
+        
         for strategy in self.strategies:
             signals = strategy.generate_signals(df)
             
             # 趋势过滤
             if strategy.strategy_type == 'buy':
-                # 买入策略：只在多头趋势或震荡中有效
-                signals = signals * (trend >= 0)
+                # 买入策略：多头/震荡趋势正常生效
+                # 空头趋势：只允许超跌反弹类策略生效
+                if strategy.name in bearish_allowed_buy_strategies:
+                    # 超跌反弹策略：在所有趋势下都生效（空头趋势下权重打折）
+                    trend_weight = trend.map({1: 1.0, 0: 1.0, -1: 0.7})
+                    signals = signals * trend_weight
+                else:
+                    # 其他买入策略：只在多头趋势或震荡中有效
+                    signals = signals * (trend >= 0)
             elif strategy.strategy_type == 'sell':
                 # 卖出策略：只在空头趋势或震荡中有效
                 signals = signals * (trend <= 0)
@@ -465,7 +517,7 @@ class CompositeStrategy:
             sell_score += (-signals).clip(lower=0) * strategy.weight
         
         # 归一化
-        buy_score = buy_score / 7.9  # 最大买入权重7.9
+        buy_score = buy_score / 9.4  # 最大买入权重9.4（含底部反转策略）
         sell_score = sell_score / 8.7  # 最大卖出权重8.7
         
         # 生成最终信号
