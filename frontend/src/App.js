@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import LoginPage from './components/LoginPage';
 import DaoPage from './components/DaoPage';
 import KlineChart from './components/KlineChart';
 import MACDChart from './components/MACDChart';
@@ -8,11 +9,34 @@ import EquityChart from './components/EquityChart';
 import Watchlist from './components/Watchlist';
 import SignalPanel from './components/SignalPanel';
 import BacktestPanel from './components/BacktestPanel';
-import { fetchStockData as apiFetchStockData, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist } from './api';
+import { API_BASE, fetchStockData as apiFetchStockData, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist } from './api';
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [symbol, setSymbol] = useState('600519');
   const [activePage, setActivePage] = useState('shu');
+
+  React.useEffect(() => {
+    if (token) {
+      fetch(`${API_BASE}/auth/me`, { headers: { Authorization: 'Bearer ' + token } })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(d => { setUser(d.user); })
+        .catch(() => { localStorage.removeItem('token'); localStorage.removeItem('user'); setToken(null); });
+    }
+  }, []);
+
+  const handleLogin = (userData, userToken) => {
+    setUser(userData);
+    setToken(userToken);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setToken(null);
+  };
 
   const getCurrentDate = () => {
     const today = new Date();
@@ -125,6 +149,10 @@ function App() {
     }
   };
 
+  if (!user) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -146,6 +174,11 @@ function App() {
           >
             执行之术
           </button>
+        </div>
+
+        <div className="user-info">
+          <span className="user-email">{user.email}</span>
+          <button className="btn btn-logout" onClick={handleLogout}>退出</button>
         </div>
 
         {activePage === 'shu' && (
