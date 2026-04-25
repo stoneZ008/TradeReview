@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pandas as pd
 import json
+import requests
 
 from data_fetcher import fetch_stock_data, search_stock, get_stock_info
 from indicators import calculate_all_indicators
@@ -31,11 +32,15 @@ def get_stock_data(symbol):
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
     
-    # 直接获取用户请求范围的数据（与回测API一致）
-    df = fetch_stock_data(symbol, start_date, end_date)
+    try:
+        df = fetch_stock_data(symbol, start_date, end_date)
+    except requests.exceptions.RequestException:
+        return jsonify({'error': '数据源网络异常，请稍后重试'}), 503
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     
     if df.empty:
-        return jsonify({'error': '无法获取数据'}), 404
+        return jsonify({'error': '未找到该股票数据'}), 404
     
     # 获取股票名称
     stock_info = get_stock_info(symbol)
