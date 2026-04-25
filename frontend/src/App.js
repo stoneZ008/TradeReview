@@ -12,7 +12,7 @@ import { fetchStockData as apiFetchStockData, runBacktest as apiRunBacktest, loa
 
 function App() {
   const [symbol, setSymbol] = useState('600519');
-  const [activePage, setActivePage] = useState('dao');
+  const [activePage, setActivePage] = useState('shu');
 
   const getCurrentDate = () => {
     const today = new Date();

@@ -31,16 +31,56 @@ export default function KlineChart({ stockData, symbol }) {
 
   const { topDivergence, bottomDivergence } = detectMACDDivergence(data);
 
-  const title = stockData.name ? stockData.name + ' (' + symbol + ')' : symbol;
+  const titleText = stockData.name ? stockData.name + ' (' + symbol + ')' : symbol;
+
+  let signalTag = '';
+  let signalColor = '';
+  let signalBg = '';
+  for (let i = data.length - 1; i >= 0; i--) {
+    if (data[i].signal !== 0) {
+      const dateStr = data[i].date.replace(/-/g, '.');
+      if (data[i].signal === 1) {
+        signalTag = dateStr + ' 出现买点';
+        signalColor = '#fff';
+        signalBg = '#ef4444';
+      } else {
+        signalTag = dateStr + ' 出现卖点';
+        signalColor = '#fff';
+        signalBg = '#3b82f6';
+      }
+      break;
+    }
+  }
+
+  const titleItems = [{
+    text: titleText,
+    left: '10%',
+    top: signalTag ? 3 : 8,
+    textStyle: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+  }];
+  if (signalTag) {
+    titleItems.push({
+      text: '{tag|' + signalTag + '}',
+      left: '10%',
+      top: 28,
+      textStyle: {
+        rich: {
+          tag: {
+            backgroundColor: signalBg,
+            color: signalColor,
+            fontSize: 14,
+            fontWeight: 'bold',
+            padding: [4, 10],
+            borderRadius: 4
+          }
+        }
+      }
+    });
+  }
 
   const option = {
     backgroundColor: '#0f0f1a',
-    title: {
-      text: title,
-      left: '10%',
-      top: 3,
-      textStyle: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
-    },
+    title: titleItems,
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross' },
@@ -82,12 +122,12 @@ export default function KlineChart({ stockData, symbol }) {
     legend: {
       data: ['K线', 'MA5', 'MA10', 'MA20', 'DIF', 'DEA', 'MACD柱'],
       textStyle: { color: '#a0a0a0' },
-      top: 0
+      top: signalTag ? 48 : 0
     },
     grid: [
-      { left: '10%', right: '5%', top: '12%', height: '40%' },
-      { left: '10%', right: '5%', top: '55%', height: '16%' },
-      { left: '10%', right: '5%', top: '74%', height: '14%' }
+      { left: '10%', right: '5%', top: signalTag ? '18%' : '12%', height: '40%' },
+      { left: '10%', right: '5%', top: '61%', height: '16%' },
+      { left: '10%', right: '5%', top: '80%', height: '14%' }
     ],
     xAxis: [
       { type: 'category', data: dates, gridIndex: 0, axisLine: { lineStyle: { color: '#2a2a4a' } }, axisLabel: { show: false } },
