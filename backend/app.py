@@ -1,5 +1,6 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from flask_cors import CORS
+from functools import wraps
 import pandas as pd
 import json
 import requests
@@ -8,8 +9,9 @@ from data_fetcher import fetch_stock_data, search_stock, get_stock_info
 from indicators import calculate_all_indicators
 from strategies import generate_trading_signals
 from backtest import run_backtest
-from watchlist_manager import load_watchlist, add_to_watchlist, remove_from_watchlist
+from watchlist_db import get_watchlist as db_get_watchlist, add_to_watchlist as db_add_watchlist, remove_from_watchlist as db_remove_watchlist
 from industry_db import seed_default_data, get_all_industries, add_industry, update_industry, add_sub_industry, update_sub_industry, add_company, update_company, delete_company
+from user_db import validate_email, validate_password, create_user, verify_user, get_user_by_id, generate_token, decode_token
 
 app = Flask(__name__)
 CORS(app)
@@ -17,11 +19,77 @@ CORS(app)
 # 初始化行业数据库
 seed_default_data()
 
+# ========== 认证相关 ==========
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': '请先登录'}), 401
+        user_id = decode_token(token)
+        if not user_id:
+            return jsonify({'error': '登录已过期，请重新登录'}), 401
+        user = get_user_by_id(user_id)
+        if not user:
+            return jsonify({'error': '用户不存在'}), 401
+        g.current_user = user
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    data = request.json
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+    if not email:
+        return jsonify({'success': False, 'error': '请输入邮箱'}), 400
+    if not validate_email(email):
+        return jsonify({'success': False, 'error': '邮箱格式不正确'}), 400
+    ok, msg = validate_password(password)
+    if not ok:
+        return jsonify({'success': False, 'error': msg}), 400
+    try:
+        user_id = create_user(email, password)
+        token = generate_token(user_id)
+        return jsonify({'success': True, 'token': token, 'user': {'id': user_id, 'email': email}})
+    except Exception as e:
+        if 'UNIQUE constraint failed' in str(e):
+            return jsonify({'success': False, 'error': '该邮箱已注册'}), 400
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.json
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+    if not email or not password:
+        return jsonify({'success': False, 'error': '请输入邮箱和密码'}), 400
+    user = verify_user(email, password)
+    if not user:
+        return jsonify({'success': False, 'error': '邮箱或密码错误'}), 401
+    token = generate_token(user['id'])
+    return jsonify({'success': True, 'token': token, 'user': {'id': user['id'], 'email': user['email']}})
+
+@app.route('/api/auth/me', methods=['GET'])
+def get_me():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not token:
+        return jsonify({'error': '未登录'}), 401
+    user_id = decode_token(token)
+    if not user_id:
+        return jsonify({'error': '登录已过期'}), 401
+    user = get_user_by_id(user_id)
+    if not user:
+        return jsonify({'error': '用户不存在'}), 401
+    return jsonify({'user': {'id': user['id'], 'email': user['email']}})
+
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
 
 @app.route('/api/search', methods=['GET'])
+@login_required
 def search():
     """搜索股票"""
     keyword = request.args.get('keyword', '')
@@ -31,6 +99,7 @@ def search():
     return jsonify({'data': df.to_dict(orient='records')})
 
 @app.route('/api/stock/<symbol>', methods=['GET'])
+@login_required
 def get_stock_data(symbol):
     """获取股票历史数据和技术指标"""
     start_date = request.args.get('start_date', '')
@@ -110,6 +179,7 @@ def get_stock_data(symbol):
     })
 
 @app.route('/api/backtest', methods=['POST'])
+@login_required
 def backtest():
     """运行回测"""
     data = request.json
@@ -171,6 +241,7 @@ def backtest():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/indicators', methods=['POST'])
+@login_required
 def get_indicators():
     """获取技术指标详情"""
     data = request.json
@@ -212,14 +283,18 @@ def get_indicators():
     return jsonify({'data': records})
 
 @app.route('/api/watchlist', methods=['GET'])
+@login_required
 def get_watchlist():
     """获取自选股列表"""
-    watchlist = load_watchlist()
+    user_id = g.current_user['id']
+    watchlist = db_get_watchlist(user_id)
     return jsonify({'data': watchlist})
 
 @app.route('/api/watchlist', methods=['POST'])
+@login_required
 def add_watchlist():
     """添加股票到自选股"""
+    user_id = g.current_user['id']
     data = request.json
     code = data.get('code', '')
     name = data.get('name', '')
@@ -227,29 +302,33 @@ def add_watchlist():
     if not code or not name:
         return jsonify({'error': '缺少代码或名称'}), 400
     
-    success, message = add_to_watchlist({'code': code, 'name': name})
+    success, message = db_add_watchlist(user_id, code, name)
     
     if success:
-        return jsonify({'success': True, 'message': message, 'data': load_watchlist()})
+        return jsonify({'success': True, 'message': message, 'data': db_get_watchlist(user_id)})
     else:
         return jsonify({'success': False, 'message': message}), 400
 
 @app.route('/api/watchlist/<code>', methods=['DELETE'])
+@login_required
 def delete_watchlist(code):
-    success, message = remove_from_watchlist(code)
+    user_id = g.current_user['id']
+    success, message = db_remove_watchlist(user_id, code)
     
     if success:
-        return jsonify({'success': True, 'message': message, 'data': load_watchlist()})
+        return jsonify({'success': True, 'message': message, 'data': db_get_watchlist(user_id)})
     else:
         return jsonify({'success': False, 'message': message}), 400
 
 # ========== 行业分类 ==========
 
 @app.route('/api/industries', methods=['GET'])
+@login_required
 def get_industries():
     return jsonify({'data': get_all_industries()})
 
 @app.route('/api/industries', methods=['POST'])
+@login_required
 def create_industry():
     data = request.json
     name = data.get('name', '')
@@ -263,6 +342,7 @@ def create_industry():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/industries/<int:industry_id>', methods=['PUT'])
+@login_required
 def edit_industry(industry_id):
     data = request.json
     name = data.get('name', '')
@@ -276,6 +356,7 @@ def edit_industry(industry_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/sub-industries', methods=['POST'])
+@login_required
 def create_sub_industry():
     data = request.json
     industry_id = data.get('industry_id')
@@ -289,6 +370,7 @@ def create_sub_industry():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/sub-industries/<int:sub_id>', methods=['PUT'])
+@login_required
 def edit_sub_industry(sub_id):
     data = request.json
     name = data.get('name', '')
@@ -301,6 +383,7 @@ def edit_sub_industry(sub_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/companies', methods=['POST'])
+@login_required
 def create_company():
     data = request.json
     sub_industry_id = data.get('sub_industry_id')
@@ -318,6 +401,7 @@ def create_company():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/companies/<int:company_id>', methods=['PUT'])
+@login_required
 def edit_company(company_id):
     data = request.json
     code = data.get('code', '')
@@ -334,6 +418,7 @@ def edit_company(company_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/companies/<int:company_id>', methods=['DELETE'])
+@login_required
 def remove_company(company_id):
     try:
         delete_company(company_id)

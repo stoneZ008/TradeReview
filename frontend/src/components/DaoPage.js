@@ -3,6 +3,11 @@ import CompanyCard from './CompanyCard';
 
 const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000/api';
 
+function authHeaders() {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: 'Bearer ' + token } : {};
+}
+
 function DaoPage({ onStockSelect }) {
   const [industryData, setIndustryData] = useState([]);
   const [expandedIndustries, setExpandedIndustries] = useState([]);
@@ -46,7 +51,7 @@ function DaoPage({ onStockSelect }) {
 
   const fetchIndustries = async () => {
     try {
-      const res = await fetch(`${API_BASE}/industries`);
+      const res = await fetch(`${API_BASE}/industries`, { headers: authHeaders() });
       const data = await res.json();
       if (data.data) {
         setIndustryData(data.data);
@@ -102,7 +107,7 @@ function DaoPage({ onStockSelect }) {
     try {
       const res = await fetch(`${API_BASE}/companies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           sub_industry_id: selectedSubIndustry.id,
           ...newCompany,
@@ -143,7 +148,7 @@ function DaoPage({ onStockSelect }) {
     try {
       const res = await fetch(`${API_BASE}/companies/${editingCompany.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           ...newCompany,
           description: newCompany.desc
@@ -178,7 +183,8 @@ function DaoPage({ onStockSelect }) {
 
     try {
       const res = await fetch(`${API_BASE}/companies/${company.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: authHeaders()
       });
       const data = await res.json();
       
@@ -210,7 +216,7 @@ function DaoPage({ onStockSelect }) {
     try {
       const res = await fetch(`${API_BASE}/industries`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ name: newIndustry.name, icon: newIndustry.icon })
       });
       const data = await res.json();
@@ -248,7 +254,7 @@ function DaoPage({ onStockSelect }) {
     try {
       const res = await fetch(`${API_BASE}/industries/${editingIndustry.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ name: newIndustry.name, icon: newIndustry.icon })
       });
       const data = await res.json();
@@ -284,7 +290,7 @@ function DaoPage({ onStockSelect }) {
     try {
       const res = await fetch(`${API_BASE}/sub-industries`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ industry_id: industryId, name: newSubIndustry.name })
       });
       const data = await res.json();
@@ -328,7 +334,7 @@ function DaoPage({ onStockSelect }) {
     try {
       const res = await fetch(`${API_BASE}/sub-industries/${editingSubIndustry.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ name: newSubIndustry.name })
       });
       const data = await res.json();
