@@ -14,6 +14,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
+import SubscriptionPage from './pages/SubscriptionPage';
 import { fetchStockData as apiFetchStockData, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist } from './api';
 
 function PrivateRoute({ children }) {
@@ -252,32 +253,39 @@ function HomePage() {
                 <span>{user?.username}</span>
                 <span>▼</span>
               </button>
-              {showUserMenu && (
-                <div className="user-dropdown">
-                  <Link
-                    to="/profile"
-                    className="user-dropdown-item"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    个人中心
-                  </Link>
-                  {(hasRole('admin') || hasRole('super_admin')) && (
-                    <Link
-                      to="/admin"
-                      className="user-dropdown-item"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      管理后台
-                    </Link>
-                  )}
-                  <button
-                    onClick={() => { logout(); setShowUserMenu(false); }}
-                    className="user-dropdown-item text-danger"
-                  >
-                    退出登录
-                  </button>
-                </div>
-              )}
+               {showUserMenu && (
+                 <div className="user-dropdown">
+                   <Link
+                     to="/profile"
+                     className="user-dropdown-item"
+                     onClick={() => setShowUserMenu(false)}
+                   >
+                     个人中心
+                   </Link>
+                   <Link
+                     to="/subscription"
+                     className="user-dropdown-item"
+                     onClick={() => setShowUserMenu(false)}
+                   >
+                     订阅付费
+                   </Link>
+                   {(hasRole('admin') || hasRole('super_admin')) && (
+                     <Link
+                       to="/admin"
+                       className="user-dropdown-item"
+                       onClick={() => setShowUserMenu(false)}
+                     >
+                       管理后台
+                     </Link>
+                   )}
+                   <button
+                     onClick={() => { logout(); setShowUserMenu(false); }}
+                     className="user-dropdown-item text-danger"
+                   >
+                     退出登录
+                   </button>
+                 </div>
+               )}
             </div>
           ) : (
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -368,13 +376,14 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-          <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />
-          <Route path="/" element={<HomePage />} />
-        </Routes>
+         <Routes>
+           <Route path="/login" element={<LoginPage />} />
+           <Route path="/register" element={<RegisterPage />} />
+           <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+           <Route path="/subscription" element={<PrivateRoute><SubscriptionPage /></PrivateRoute>} />
+           <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />
+           <Route path="/" element={<HomePage />} />
+         </Routes>
       </Router>
     </AuthProvider>
   );

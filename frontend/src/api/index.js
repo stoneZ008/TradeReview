@@ -174,3 +174,9 @@ export async function removeFromWatchlist(code) {
   if (!data.success) throw new Error(data.message);
   return data.data;
 }
+
+export async function getSubscriptionPlans() {
+  const res = await fetchWithAuth(`${API_BASE}/subscription/plans`);
+  const data = await res.json();
+  return data.data || [];
+}

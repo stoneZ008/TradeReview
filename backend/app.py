@@ -557,5 +557,35 @@ def remove_company(company_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/subscription/plans', methods=['GET'])
+@optional_jwt
+def get_subscription_plans():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, name, monthly_price, yearly_price, 
+               max_backtests_monthly, features_json, description
+        FROM subscription_plans
+        ORDER BY monthly_price
+    ''')
+    rows = cursor.fetchall()
+    conn.close()
+    
+    plans = []
+    for row in rows:
+        features = json.loads(row['features_json']) if row['features_json'] else {}
+        plans.append({
+            'id': row['id'],
+            'name': row['name'],
+            'name_cn': {'trial': '试用版', 'basic': '基础版', 'pro': '专业版', 'enterprise': '企业版'}.get(row['name'], row['name']),
+            'monthly_price': row['monthly_price'],
+            'yearly_price': row['yearly_price'],
+            'max_backtests_monthly': row['max_backtests_monthly'],
+            'features': features,
+            'description': row['description']
+        })
+    
+    return jsonify({'data': plans})
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
