@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import DaoPage from './components/DaoPage';
 import KlineChart from './components/KlineChart';
 import MACDChart from './components/MACDChart';
@@ -8,11 +10,33 @@ import EquityChart from './components/EquityChart';
 import Watchlist from './components/Watchlist';
 import SignalPanel from './components/SignalPanel';
 import BacktestPanel from './components/BacktestPanel';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ProfilePage from './pages/ProfilePage';
+import AdminPage from './pages/AdminPage';
 import { fetchStockData as apiFetchStockData, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist } from './api';
 
-function App() {
+function PrivateRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'var(--bg-primary)'
+    }}>
+      <div style={{ color: 'var(--text-primary)' }}>加载中...</div>
+    </div>
+  );
+  return isAuthenticated ? children : <Navigate to="/login" />;
+}
+
+function HomePage() {
+  const { user, logout, isAuthenticated, hasRole, loading: authLoading } = useAuth();
   const [symbol, setSymbol] = useState('600519');
   const [activePage, setActivePage] = useState('shu');
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const getCurrentDate = () => {
     const today = new Date();
@@ -32,8 +56,10 @@ function App() {
   const [watchlist, setWatchlist] = useState([]);
 
   React.useEffect(() => {
-    handleLoadWatchlist();
-  }, []);
+    if (isAuthenticated) {
+      handleLoadWatchlist();
+    }
+  }, [isAuthenticated]);
 
   const handleLoadWatchlist = async () => {
     try {
@@ -56,6 +82,10 @@ function App() {
   };
 
   const handleAddToWatchlist = async () => {
+    if (!isAuthenticated) {
+      alert('请先登录');
+      return;
+    }
     if (!stockData?.name || !symbol) {
       alert('请先获取股票数据');
       return;
@@ -103,6 +133,10 @@ function App() {
   }, [symbol, startDate, endDate]);
 
   const runBacktest = async () => {
+    if (!isAuthenticated) {
+      alert('请先登录');
+      return;
+    }
     if (!symbol) return;
     setLoading(true);
     try {
@@ -124,6 +158,20 @@ function App() {
       default: return <KlineChart stockData={stockData} symbol={symbol} />;
     }
   };
+
+  if (authLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-primary)'
+      }}>
+        <div style={{ color: 'var(--text-primary)' }}>加载中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -193,6 +241,55 @@ function App() {
             </button>
           </div>
         )}
+
+        <div className="user-menu-wrapper">
+          {isAuthenticated ? (
+            <div>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="user-menu-btn"
+              >
+                <span>{user?.username}</span>
+                <span>▼</span>
+              </button>
+              {showUserMenu && (
+                <div className="user-dropdown">
+                  <Link
+                    to="/profile"
+                    className="user-dropdown-item"
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    个人中心
+                  </Link>
+                  {(hasRole('admin') || hasRole('super_admin')) && (
+                    <Link
+                      to="/admin"
+                      className="user-dropdown-item"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      管理后台
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => { logout(); setShowUserMenu(false); }}
+                    className="user-dropdown-item text-danger"
+                  >
+                    退出登录
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Link to="/login" className="btn" style={{ background: 'transparent', color: 'var(--text-primary)' }}>
+                登录
+              </Link>
+              <Link to="/register" className="btn btn-primary">
+                注册
+              </Link>
+            </div>
+          )}
+        </div>
       </header>
 
       {activePage === 'dao' ? (
@@ -264,6 +361,22 @@ function App() {
         </div>
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+          <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />
+          <Route path="/" element={<HomePage />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
