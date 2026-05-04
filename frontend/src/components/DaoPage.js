@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CompanyCard from './CompanyCard';
 import { useAuth } from '../context/AuthContext';
-
-const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000/api';
+import { API_BASE, fetchWithAuth } from '../api';
 
 function DaoPage({ onStockSelect }) {
   const { hasRole } = useAuth();
@@ -49,13 +48,23 @@ function DaoPage({ onStockSelect }) {
 
   const fetchIndustries = async () => {
     try {
-      const res = await fetch(`${API_BASE}/industries`);
+      const res = await fetchWithAuth(`${API_BASE}/industries`);
       const data = await res.json();
       if (data.data) {
         setIndustryData(data.data);
         // 展开第一个行业
         if (data.data.length > 0) {
           setExpandedIndustries([data.data[0].id]);
+        }
+        // 更新当前选中的子行业数据
+        if (selectedSubIndustry) {
+          for (const industry of data.data) {
+            const found = industry.children.find(sub => sub.id === selectedSubIndustry.id);
+            if (found) {
+              setSelectedSubIndustry(found);
+              break;
+            }
+          }
         }
       }
     } catch (e) {
@@ -93,7 +102,7 @@ function DaoPage({ onStockSelect }) {
 
   // 添加公司
   const handleAddCompany = async () => {
-    if (!newCompany.codecode || !newCompany.namename) {
+    if (!newCompany.code || !newCompany.name) {
       alert('请填写公司代码和名称');
       return;
     }
@@ -103,12 +112,14 @@ function DaoPage({ onStockSelect }) {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/companies`, {
+      const res = await fetchWithAuth(`${API_BASE}/companies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sub_industry_id: selectedSubIndustry.id,
-          ...newCompany,
+          code: newCompany.code,
+          name: newCompany.name,
+          role: newCompany.role,
+          feature: newCompany.feature,
           description: newCompany.desc
         })
       });
@@ -118,6 +129,7 @@ function DaoPage({ onStockSelect }) {
         await fetchIndustries();
         setNewCompany({ code: '', name: '', role: '', feature: '', desc: '' });
         setShowAddForm(false);
+        setSelectedSubIndustry(null);
       } else {
         alert(data.error || '添加失败');
       }
@@ -144,9 +156,8 @@ function DaoPage({ onStockSelect }) {
     if (!editingCompany) return;
 
     try {
-      const res = await fetch(`${API_BASE}/companies/${editingCompany.id}`, {
+      const res = await fetchWithAuth(`${API_BASE}/companies/${editingCompany.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newCompany,
           description: newCompany.desc
@@ -176,24 +187,22 @@ function DaoPage({ onStockSelect }) {
   };
 
   // 删除公司
-  const handleDeleteCompany = async (company) => {
+  const handleDeleteCompany = async (companyId) => {
+    const company = selectedSubIndustry?.companies?.find(c => c.id === companyId);
+    if (!company) {
+      alert('未找到公司信息');
+      return;
+    }
     if (!confirm(`确定删除 ${company.name} 吗？`)) return;
 
     try {
-      const res = await fetch(`${API_BASE}/companies/${company.id}`, {
+      const res = await fetchWithAuth(`${API_BASE}/companies/${companyId}`, {
         method: 'DELETE'
       });
       const data = await res.json();
       
       if (data.success) {
         await fetchIndustries();
-        if (selectedSubIndustry?.id === company.sub_industry_id) {
-          const updatedSubIndustry = {
-            ...selectedSubIndustry,
-            companies: selectedSubIndustry.companies.filter(c => c.id !== company.id)
-          };
-          setSelectedSubIndustry(updatedSubIndustry);
-        }
       } else {
         alert(data.error || '删除失败');
       }
@@ -211,9 +220,8 @@ function DaoPage({ onStockSelect }) {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/industries`, {
+      const res = await fetchWithAuth(`${API_BASE}/industries`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newIndustry.name, icon: newIndustry.icon })
       });
       const data = await res.json();
@@ -249,9 +257,8 @@ function DaoPage({ onStockSelect }) {
     if (!editingIndustry) return;
 
     try {
-      const res = await fetch(`${API_BASE}/industries/${editingIndustry.id}`, {
+      const res = await fetchWithAuth(`${API_BASE}/industries/${editingIndustry.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newIndustry.name, icon: newIndustry.icon })
       });
       const data = await res.json();
@@ -285,9 +292,8 @@ function DaoPage({ onStockSelect }) {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/sub-industries`, {
+      const res = await fetchWithAuth(`${API_BASE}/sub-industries`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ industry_id: industryId, name: newSubIndustry.name })
       });
       const data = await res.json();
@@ -329,9 +335,8 @@ function DaoPage({ onStockSelect }) {
     if (!editingSubIndustry) return;
 
     try {
-      const res = await fetch(`${API_BASE}/sub-industries/${editingSubIndustry.id}`, {
+      const res = await fetchWithAuth(`${API_BASE}/sub-industries/${editingSubIndustry.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newSubIndustry.name })
       });
       const data = await res.json();

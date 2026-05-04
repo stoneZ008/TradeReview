@@ -144,6 +144,22 @@ def admin_list_users():
     users = get_all_users()
     return jsonify({'data': users})
 
+@app.route('/api/admin/users', methods=['POST'])
+@requires_roles('super_admin', 'admin')
+def admin_create_user():
+    data = request.json
+    username = data.get('username', '')
+    email = data.get('email', '')
+    password = data.get('password', '')
+    
+    if not username or not email or not password:
+        return jsonify({'error': '请填写用户名、邮箱和密码'}), 400
+    
+    user, err = create_user(username, email, password)
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'success': True, 'data': user})
+
 @app.route('/api/admin/users/<int:user_id>/subscription', methods=['PUT'])
 @requires_roles('super_admin', 'admin')
 def admin_assign_subscription(user_id):

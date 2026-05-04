@@ -202,7 +202,7 @@ def seed_initial_data():
     
     user_basic_perms = [
         'stock:read', 'backtest:run', 'watchlist:read', 'watchlist:write',
-        'profile:read', 'profile:write'
+        'industry:read', 'profile:read', 'profile:write'
     ]
     for perm_name in user_basic_perms:
         cursor.execute('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)',

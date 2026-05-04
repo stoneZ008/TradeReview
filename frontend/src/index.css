@@ -751,6 +751,16 @@ body {
   color: #fff;
 }
 
+.nav-tab-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nav-tab-disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
 /* ========================================
    道页面样式
    ======================================== */

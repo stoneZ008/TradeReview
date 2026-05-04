@@ -19,22 +19,33 @@ function getAuthHeaders() {
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
-async function fetchWithAuth(url, options = {}) {
+export async function fetchWithAuth(url, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...getAuthHeaders(),
     ...options.headers
   };
   const res = await fetch(url, { ...options, headers });
+  
   if (res.status === 401 || res.status === 403) {
-    const data = await res.json().catch(() => ({}));
+    const resClone = res.clone();
+    const data = await resClone.json().catch(() => ({}));
+    
     if (!getAuthToken()) {
+      // 未登录状态，直接跳转到登录页（只提示一次）
       alert('请先登录后再使用此功能');
-      window.location.href = '/login';
+      // 创建一个 never-resolving promise 来阻止后续代码执行
+      await new Promise(() => {
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 100);
+      });
     } else if (data.error) {
       alert(data.error);
+      throw new Error(data.error);
     }
   }
+  
   return res;
 }
 
@@ -109,6 +120,26 @@ export async function adminAssignSubscription(userId, planName, isYearly = false
   const res = await fetchWithAuth(`${API_BASE}/admin/users/${userId}/subscription`, {
     method: 'PUT',
     body: JSON.stringify({ plan_name: planName, is_yearly: isYearly })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function adminAssignRole(userId, roleName) {
+  const res = await fetchWithAuth(`${API_BASE}/admin/users/${userId}/roles`, {
+    method: 'PUT',
+    body: JSON.stringify({ role_name: roleName })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function adminCreateUser(username, email, password) {
+  const res = await fetchWithAuth(`${API_BASE}/admin/users`, {
+    method: 'POST',
+    body: JSON.stringify({ username, email, password })
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);

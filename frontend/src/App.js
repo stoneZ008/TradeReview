@@ -39,6 +39,15 @@ function HomePage() {
   const [activePage, setActivePage] = useState('shu');
   const [showUserMenu, setShowUserMenu] = useState(false);
 
+  const hasDaoAccess = React.useMemo(() => {
+    if (!user) return false;
+    const roles = user.roles || [];
+    if (roles.includes('admin') || roles.includes('super_admin')) return true;
+    if (user.is_trial_active) return true;
+    const userRole = roles[0];
+    return userRole === 'user_pro' || userRole === 'user_basic';
+  }, [user]);
+
   const getCurrentDate = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -184,10 +193,18 @@ function HomePage() {
 
         <div className="nav-tabs">
           <button
-            className={`nav-tab ${activePage === 'dao' ? 'active' : ''}`}
-            onClick={() => setActivePage('dao')}
+            className={`nav-tab ${activePage === 'dao' ? 'active' : ''} ${!hasDaoAccess ? 'nav-tab-disabled' : ''}`}
+            onClick={() => {
+              if (hasDaoAccess) {
+                setActivePage('dao');
+              } else {
+                alert('请升级套餐以解锁认知之道页面');
+              }
+            }}
+            title={!hasDaoAccess ? '升级套餐以解锁认知之道页面' : ''}
           >
             认知之道
+            {!hasDaoAccess && <span style={{ fontSize: '10px', marginLeft: '4px', opacity: 0.7 }}>🔒</span>}
           </button>
           <button
             className={`nav-tab ${activePage === 'shu' ? 'active' : ''}`}

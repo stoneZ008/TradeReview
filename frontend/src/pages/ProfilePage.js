@@ -78,10 +78,18 @@ export default function ProfilePage() {
     }
   };
 
-  const getCurrentPlanName = () => {
-    if (user?.is_trial_active) return '试用版';
+  const getCurrentPlan = () => {
+    if (user?.is_trial_active) {
+      return { name: '试用版', is_trial: true };
+    }
     const plan = plans.find(p => p.id === subscription?.subscription?.plan_id);
-    return plan?.name || '基础版';
+    if (plan) return plan;
+    return plans.find(p => p.name === 'basic') || { name: '基础版' };
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('zh-CN');
   };
 
   return (
@@ -100,19 +108,69 @@ export default function ProfilePage() {
             <h2 className="card-title">当前套餐</h2>
           </div>
           <div className="card-body">
-            <div className="plan-info">
-              <span className="plan-name">{getCurrentPlanName()}</span>
+            <div className="plan-info" style={{ marginBottom: '16px' }}>
+              <span className="plan-name" style={{ fontSize: '24px', fontWeight: 600 }}>
+                {getCurrentPlan()?.name === 'basic' ? '基础版' : 
+                 getCurrentPlan()?.name === 'pro' ? '专业版' : 
+                 getCurrentPlan()?.name === 'enterprise' ? '企业版' : 
+                 getCurrentPlan()?.name || '基础版'}
+              </span>
               {user?.is_trial_active && (
-                <span className="trial-badge">试用中</span>
+                <span className="trial-badge" style={{ 
+                  background: '#fef3c7', 
+                  color: '#d97706',
+                  padding: '4px 12px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  marginLeft: '12px'
+                }}>
+                  试用中
+                </span>
               )}
             </div>
-            {subscription?.backtest_quota && (
-              <div className="quota-info">
-                本月回测次数: {subscription.backtest_quota.used} / {
-                  subscription.backtest_quota.max === -1 ? '无限' : subscription.backtest_quota.max
-                }
-              </div>
-            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {subscription?.subscription?.start_date && (
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    生效日期
+                  </div>
+                  <div style={{ fontWeight: 500 }}>
+                    {formatDate(subscription.subscription.start_date)}
+                  </div>
+                </div>
+              )}
+              {subscription?.subscription?.end_date && (
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    到期日期
+                  </div>
+                  <div style={{ fontWeight: 500 }}>
+                    {formatDate(subscription.subscription.end_date)}
+                  </div>
+                </div>
+              )}
+              {subscription?.backtest_quota && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    本月回测配额
+                  </div>
+                  <div style={{ fontWeight: 500 }}>
+                    {subscription.backtest_quota.used} / {
+                      subscription.backtest_quota.max === -1 ? '无限' : subscription.backtest_quota.max
+                    }
+                    {subscription.backtest_quota.max !== -1 && (
+                      <span style={{ 
+                        marginLeft: '8px', 
+                        color: subscription.backtest_quota.remaining < 3 ? 'var(--danger)' : 'var(--text-secondary)'
+                      }}>
+                        (剩余: {subscription.backtest_quota.remaining})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
