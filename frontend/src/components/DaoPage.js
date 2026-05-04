@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import CompanyCard from './CompanyCard';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000/api';
 
 function DaoPage({ onStockSelect }) {
+  const { hasRole } = useAuth();
+  const canEdit = hasRole('admin') || hasRole('super_admin');
   const [industryData, setIndustryData] = useState([]);
   const [expandedIndustries, setExpandedIndustries] = useState([]);
   const [selectedSubIndustry, setSelectedSubIndustry] = useState(null);
@@ -369,7 +372,7 @@ function DaoPage({ onStockSelect }) {
       <div className="dao-sidebar">
         <div className="dao-sidebar-header">
           <span>📊 行业分类</span>
-          {!showAddIndustryForm && !showEditIndustryForm && (
+          {canEdit && !showAddIndustryForm && !showEditIndustryForm && (
             <button 
               className="btn-add-industry"
               onClick={() => {
@@ -384,9 +387,9 @@ function DaoPage({ onStockSelect }) {
           )}
         </div>
         <div className="dao-sidebar-content">
-          {/* 添加行业表单 */}
-          {showAddIndustryForm && (
-            <div className="industry-form">
+           {/* 添加行业表单 */}
+           {canEdit && showAddIndustryForm && (
+             <div className="industry-form">
               <input
                 type="text"
                 value={newIndustry.name}
@@ -421,9 +424,9 @@ function DaoPage({ onStockSelect }) {
 
           {industryData.map(industry => (
             <div key={industry.id} className="industry-group">
-              {/* 编辑行业表单 */}
-              {showEditIndustryForm && editingIndustry?.id === industry.id && (
-                <div className="industry-form edit-form">
+               {/* 编辑行业表单 */}
+               {canEdit && showEditIndustryForm && editingIndustry?.id === industry.id && (
+                 <div className="industry-form edit-form">
                   <input
                     type="text"
                     value={newIndustry.name}
@@ -463,12 +466,14 @@ function DaoPage({ onStockSelect }) {
                   <span className="industry-arrow">
                     {expandedIndustries.includes(industry.id) ? '▼' : '▶'}
                   </span>
-                  <button 
-                    className="btn-edit-industry"
-                    onClick={(e) => handleEditIndustry(industry, e)}
-                  >
-                    ✏️
-                  </button>
+                  {canEdit && (
+                    <button 
+                      className="btn-edit-industry"
+                      onClick={(e) => handleEditIndustry(industry, e)}
+                    >
+                      ✏️
+                    </button>
+                  )}
                 </span>
               </div>
               
@@ -483,19 +488,21 @@ function DaoPage({ onStockSelect }) {
                       <span className="sub-industry-name">{sub.name}</span>
                       <span className="sub-industry-actions">
                         <span className="sub-industry-count">{sub.companies?.length || 0}</span>
-                        <button 
-                          className="btn-edit-sub"
-                          onClick={(e) => handleEditSubIndustry(industry.id, sub, e)}
-                        >
-                          ✏️
-                        </button>
+                        {canEdit && (
+                          <button 
+                            className="btn-edit-sub"
+                            onClick={(e) => handleEditSubIndustry(industry.id, sub, e)}
+                          >
+                            ✏️
+                          </button>
+                        )}
                       </span>
                     </div>
                   ))}
                   
-                  {/* 添加子行业按钮 */}
-                  {showAddSubForm && selectedIndustryId === industry.id && (
-                    <div className="sub-industry-form">
+                   {/* 添加子行业按钮 */}
+                   {canEdit && showAddSubForm && selectedIndustryId === industry.id && (
+                     <div className="sub-industry-form">
                       <input
                         type="text"
                         value={newSubIndustry.name}
@@ -521,19 +528,19 @@ function DaoPage({ onStockSelect }) {
                     </div>
                   )}
                   
-                  {!(showAddSubForm && selectedIndustryId === industry.id) && (
-                    <button 
-                      className="btn-add-sub"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedIndustryId(industry.id);
-                        setShowAddSubForm(true);
-                        setShowEditSubForm(false);
-                      }}
-                    >
-                      + 添加子分类
-                    </button>
-                  )}
+                   {canEdit && !(showAddSubForm && selectedIndustryId === industry.id) && (
+                     <button 
+                       className="btn-add-sub"
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         setSelectedIndustryId(industry.id);
+                         setShowAddSubForm(true);
+                         setShowEditSubForm(false);
+                       }}
+                     >
+                       + 添加子分类
+                     </button>
+                   )}
                 </div>
               )}
             </div>
@@ -550,7 +557,7 @@ function DaoPage({ onStockSelect }) {
               : '请选择行业分类'
             }
           </h2>
-          {selectedSubIndustry && (
+          {selectedSubIndustry && canEdit && (
             <button 
               className="btn btn-add-company"
               onClick={() => setShowAddForm(!showAddForm)}
@@ -561,7 +568,7 @@ function DaoPage({ onStockSelect }) {
         </div>
 
         {/* 编辑公司表单 */}
-        {showEditForm && (
+        {canEdit && showEditForm && (
           <div className="add-company-form edit-form">
             <div className="form-header">
               <h3>编辑公司</h3>
@@ -630,7 +637,7 @@ function DaoPage({ onStockSelect }) {
         )}
 
         {/* 添加公司表单 */}
-        {showAddForm && (
+        {canEdit && showAddForm && (
           <div className="add-company-form">
             <div className="form-row">
               <div className="form-group">
@@ -694,28 +701,20 @@ function DaoPage({ onStockSelect }) {
           </div>
         )}
 
-        <div className="dao-content-body">
-          <div className="company-grid">
-            {getCurrentCompanies().map(company => (
-              <div key={company.code} className="company-card-wrapper">
-                <CompanyCard 
-                  company={company}
-                  onSelect={handleCompanySelect}
-                  onEdit={handleEditCompany}
-                />
-                <button 
-                  className="btn-delete-company"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteCompany(company);
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+         <div className="dao-content-body">
+           <div className="company-grid">
+             {getCurrentCompanies().map(company => (
+               <div key={company.code} className="company-card-wrapper">
+                 <CompanyCard 
+                   company={company}
+                   onSelect={handleCompanySelect}
+                   onEdit={handleEditCompany}
+                   onDelete={handleDeleteCompany}
+                 />
+               </div>
+             ))}
+           </div>
+         </div>
       </div>
     </div>
   );

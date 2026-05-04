@@ -83,6 +83,34 @@ body {
   color: var(--text-primary);
 }
 
+.watchlist-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.watchlist-tab {
+  flex: 1;
+  padding: 10px 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.watchlist-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+.watchlist-tab.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+  background: var(--bg-primary);
+}
+
 .watchlist-content {
   flex: 1;
   overflow-y: auto;
@@ -1292,31 +1320,18 @@ body {
 }
 
 .btn-delete-company {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 24px;
-  height: 24px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 50%;
+  background: transparent;
+  border: none;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
-  opacity: 0;
+  padding: 4px 8px;
+  border-radius: 4px;
   transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.company-card-wrapper:hover .btn-delete-company {
-  opacity: 1;
 }
 
 .btn-delete-company:hover {
   background: var(--up-color);
-  border-color: var(--up-color);
   color: #fff;
 }
 
