@@ -285,6 +285,12 @@ export default function SubscriptionPage() {
                       认知之道页面
                     </div>
                   )}
+                  {plan.name === 'enterprise' && (
+                    <div className="feature-item">
+                      <span className="feature-icon">✓</span>
+                      美股买卖点分析
+                    </div>
+                  )}
                   {plan.features.priority_support && (
                     <div className="feature-item">
                       <span className="feature-icon">✓</span>

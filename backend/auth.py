@@ -2,6 +2,7 @@ from functools import wraps
 from flask import request, jsonify, g
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 from user_db import get_connection
+from data_fetcher import is_us_stock
 import json
 
 def get_user_permissions(user_id):
@@ -202,3 +203,34 @@ def add_audit_log(action, resource=None, user_id=None):
     ''', (user_id, action, resource, ip_address, user_agent))
     conn.commit()
     conn.close()
+
+
+def has_us_stock_permission(user_id):
+    """检查用户是否有权限访问美股（仅企业版订阅）"""
+    subscription = get_user_subscription(user_id)
+    # 企业版名称是 'enterprise'
+    if subscription and subscription['name'] == 'enterprise':
+        return True
+    return False
+
+
+def requires_us_market(fn):
+    """装饰器：检查用户是否有权限访问美股"""
+    @wraps(fn)
+    @optional_jwt
+    def wrapper(*args, **kwargs):
+        # 从 URL 参数或请求体中获取股票代码
+        symbol = kwargs.get('symbol', '')
+        if not symbol and request.method == 'POST':
+            data = request.get_json(silent=True) or {}
+            symbol = data.get('symbol', '')
+        
+        # 如果是美股，检查订阅权限
+        if symbol and is_us_stock(symbol):
+            if not g.user_id:
+                return jsonify({'error': '请先登录'}), 401
+            if not has_us_stock_permission(g.user_id):
+                return jsonify({'error': '美股功能仅限企业版订阅用户使用'}), 403
+        
+        return fn(*args, **kwargs)
+    return wrapper

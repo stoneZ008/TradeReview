@@ -3,17 +3,27 @@ import numpy as np
 from datetime import datetime, timedelta
 import requests
 import json
+import re
+
+
+def is_us_stock(symbol):
+    """判断是否为美股代码（字母开头）"""
+    return bool(re.match(r'^[A-Za-z]', symbol.strip().upper()))
 
 
 def get_market_code(symbol):
+    # 美股：105=纳斯达克, 106=纽交所
+    if is_us_stock(symbol):
+        return ['105.' + symbol, '106.' + symbol]
+    # A股
     if symbol.startswith('688') or symbol.startswith('6'):
-        return '1.' + symbol
+        return ['1.' + symbol]
     elif symbol.startswith('0') or symbol.startswith('3'):
-        return '0.' + symbol
+        return ['0.' + symbol]
     elif symbol.startswith('4') or symbol.startswith('8'):
-        return '0.' + symbol
+        return ['0.' + symbol]
     else:
-        return '0.' + symbol
+        return ['0.' + symbol]
 
 
 def _get_sina_prefix(symbol):
@@ -28,48 +38,51 @@ def _get_sina_prefix(symbol):
 
 
 def _fetch_eastmoney(symbol, start_date, end_date, adjust):
-    secid = get_market_code(symbol)
+    secid_list = get_market_code(symbol)
     url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
-    params = {
-        'secid': secid,
-        'fields1': 'f1,f2,f3,f4,f5,f6',
-        'fields2': 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61',
-        'klt': '101',
-        'fqt': '1' if adjust == 'qfq' else '0',
-        'beg': start_date,
-        'end': end_date,
-        'lmt': '1000',
-        'ut': 'fa5fd1943c7b386f172d6893dbfba10b'
-    }
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://quote.eastmoney.com/'
-    }
-    response = requests.get(url, params=params, headers=headers, timeout=30)
-    data = response.json()
-    if not (data.get('data') and data['data'].get('klines')):
-        return pd.DataFrame()
-    klines = data['data']['klines']
-    records = []
-    for line in klines:
-        parts = line.split(',')
-        records.append({
-            'date': pd.to_datetime(parts[0]),
-            'open': float(parts[1]),
-            'close': float(parts[2]),
-            'high': float(parts[3]),
-            'low': float(parts[4]),
-            'volume': float(parts[5]),
-            'amount': float(parts[6]),
-            'amplitude': float(parts[7]),
-            'pct_change': float(parts[8]),
-            'change': float(parts[9]),
-            'turnover': float(parts[10])
-        })
-    df = pd.DataFrame(records)
-    df = df.set_index('date')
-    df = df.sort_index()
-    return df
+    
+    for secid in secid_list:
+        params = {
+            'secid': secid,
+            'fields1': 'f1,f2,f3,f4,f5,f6',
+            'fields2': 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61',
+            'klt': '101',
+            'fqt': '1' if adjust == 'qfq' else '0',
+            'beg': start_date,
+            'end': end_date,
+            'lmt': '1000',
+            'ut': 'fa5fd1943c7b386f172d6893dbfba10b'
+        }
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://quote.eastmoney.com/'
+        }
+        response = requests.get(url, params=params, headers=headers, timeout=30)
+        data = response.json()
+        if data.get('data') and data['data'].get('klines'):
+            klines = data['data']['klines']
+            records = []
+            for line in klines:
+                parts = line.split(',')
+                records.append({
+                    'date': pd.to_datetime(parts[0]),
+                    'open': float(parts[1]),
+                    'close': float(parts[2]),
+                    'high': float(parts[3]),
+                    'low': float(parts[4]),
+                    'volume': float(parts[5]),
+                    'amount': float(parts[6]),
+                    'amplitude': float(parts[7]),
+                    'pct_change': float(parts[8]),
+                    'change': float(parts[9]),
+                    'turnover': float(parts[10])
+                })
+            df = pd.DataFrame(records)
+            df = df.set_index('date')
+            df = df.sort_index()
+            return df
+    
+    return pd.DataFrame()
 
 
 def _fetch_sina(symbol, start_date, end_date):
@@ -114,26 +127,36 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
         end_date = datetime.now().strftime('%Y%m%d')
     if start_date is None:
         start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
-
+    
+    # 东方财富统一接口：支持 A股 + 美股
     try:
         df = _fetch_eastmoney(symbol, start_date, end_date, adjust)
         if not df.empty:
             return df
-        print("东方财富返回空数据，回退到新浪财经")
+        print("东方财富返回空数据")
     except requests.exceptions.RequestException as e:
-        print(f"东方财富网络异常: {e}，回退到新浪财经")
+        print(f"东方财富网络异常: {e}")
     except Exception as e:
-        print(f"东方财富获取失败: {e}，回退到新浪财经")
-
-    try:
-        df = _fetch_sina(symbol, start_date, end_date)
-        if df.empty:
-            raise requests.exceptions.RequestException("新浪财经也返回空数据")
-        return df
-    except requests.exceptions.RequestException:
-        raise
-    except Exception as e:
-        raise requests.exceptions.RequestException(f"所有数据源均失败: {e}")
+        print(f"东方财富获取失败: {e}")
+    
+    # A股回退到新浪财经（美股新浪接口不同，暂不降级）
+    if not is_us_stock(symbol):
+        try:
+            print("回退到新浪财经")
+            df = _fetch_sina(symbol, start_date, end_date)
+            if df.empty:
+                raise requests.exceptions.RequestException("新浪财经也返回空数据")
+            return df
+        except Exception as e:
+            print(f"新浪财经获取失败: {e}")
+    
+    # 美股友好提示
+    if is_us_stock(symbol):
+        raise requests.exceptions.RequestException(
+            f"未找到美股 {symbol} 的数据，请检查代码是否正确，或尝试：AAPL, MSFT, GOOGL, AMZN, TSLA, META, NVDA"
+        )
+    
+    raise requests.exceptions.RequestException(f"获取 {symbol} 数据失败")
 
 
 def search_stock(keyword):
@@ -171,7 +194,7 @@ def search_stock(keyword):
         return get_default_stock_list()
 
 
-def get_default_stock_list():
+def get_default_stock_list(include_us=False):
     stocks = [
         {'代码': '600519', '名称': '贵州茅台', '市场': '沪市'},
         {'代码': '601318', '名称': '中国平安', '市场': '沪市'},
@@ -188,6 +211,17 @@ def get_default_stock_list():
         {'代码': '300750', '名称': '宁德时代', '市场': '深市'},
         {'代码': '300059', '名称': '东方财富', '市场': '深市'},
     ]
+    if include_us:
+        us_stocks = [
+            {'代码': 'AAPL', '名称': '苹果', '市场': '美股'},
+            {'代码': 'MSFT', '名称': '微软', '市场': '美股'},
+            {'代码': 'GOOGL', '名称': '谷歌', '市场': '美股'},
+            {'代码': 'AMZN', '名称': '亚马逊', '市场': '美股'},
+            {'代码': 'TSLA', '名称': '特斯拉', '市场': '美股'},
+            {'代码': 'META', '名称': 'Meta', '市场': '美股'},
+            {'代码': 'NVDA', '名称': '英伟达', '市场': '美股'},
+        ]
+        stocks = us_stocks + stocks
     return pd.DataFrame(stocks)
 
 
@@ -221,40 +255,57 @@ def get_stock_info(symbol):
     symbol = symbol.strip().upper()
     if symbol.startswith(('SH', 'SZ')):
         symbol = symbol[2:]
-    secid = get_market_code(symbol)
+    secid_list = get_market_code(symbol)
     url = "https://push2.eastmoney.com/api/qt/stock/get"
-    params = {
-        'secid': secid,
-        'fields': 'f43,f44,f45,f46,f47,f48,f57,f58,f170',
-        'ut': 'fa5fd1943c7b386f172d6893dbfba10b'
-    }
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': 'https://quote.eastmoney.com/'
+    
+    for secid in secid_list:
+        params = {
+            'secid': secid,
+            'fields': 'f43,f44,f45,f46,f47,f48,f57,f58,f170',
+            'ut': 'fa5fd1943c7b386f172d6893dbfba10b'
         }
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        data = response.json()
-        if data.get('data'):
-            d = data['data']
-            return {
-                'code': symbol,
-                'name': d.get('f58', ''),
-                'price': d.get('f43', 0) / 100 if d.get('f43') else 0,
-                'high': d.get('f44', 0) / 100 if d.get('f44') else 0,
-                'low': d.get('f45', 0) / 100 if d.get('f45') else 0,
-                'open': d.get('f46', 0) / 100 if d.get('f46') else 0,
-                'volume': d.get('f47', 0),
-                'amount': d.get('f48', 0),
-                'pct_change': d.get('f170', 0) / 100 if d.get('f170') else 0
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://quote.eastmoney.com/'
             }
-    except Exception as e:
-        print(f"东方财富获取股票信息失败: {e}，回退新浪")
-    try:
-        return _get_stock_info_sina(symbol)
-    except Exception as e:
-        print(f"新浪获取股票信息失败: {e}")
-        return None
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            data = response.json()
+            if data.get('data') and data['data'].get('f58'):
+                d = data['data']
+                return {
+                    'code': symbol,
+                    'name': d.get('f58', ''),
+                    'price': d.get('f43', 0) / 100 if d.get('f43') else 0,
+                    'high': d.get('f44', 0) / 100 if d.get('f44') else 0,
+                    'low': d.get('f45', 0) / 100 if d.get('f45') else 0,
+                    'open': d.get('f46', 0) / 100 if d.get('f46') else 0,
+                    'volume': d.get('f47', 0),
+                    'amount': d.get('f48', 0),
+                    'pct_change': d.get('f170', 0) / 100 if d.get('f170') else 0
+                }
+        except Exception as e:
+            continue
+    
+    # A股回退到新浪
+    if not is_us_stock(symbol):
+        try:
+            return _get_stock_info_sina(symbol)
+        except Exception as e:
+            print(f"新浪获取股票信息失败: {e}")
+    
+    # 美股返回基本信息（至少包含代码作为名称）
+    return {
+        'code': symbol,
+        'name': symbol,
+        'price': 0,
+        'high': 0,
+        'low': 0,
+        'open': 0,
+        'volume': 0,
+        'amount': 0,
+        'pct_change': 0
+    }
 
 
 def get_stock_list():

@@ -16,7 +16,7 @@ from backtest import run_backtest
 from industry_db import seed_default_data, get_all_industries, add_industry, update_industry, add_sub_industry, update_sub_industry, add_company, update_company, delete_company
 from user_db import seed_initial_data, get_connection
 from user_service import create_user, authenticate_user, get_user_by_id, change_password, update_profile, get_all_users, assign_user_role, get_all_plans, assign_subscription
-from auth import jwt_required, optional_jwt, requires_roles, requires_permission, requires_backtest_quota, check_backtest_quota, increment_backtest_usage, add_audit_log
+from auth import jwt_required, optional_jwt, requires_roles, requires_permission, requires_backtest_quota, check_backtest_quota, increment_backtest_usage, add_audit_log, requires_us_market
 
 app = Flask(__name__)
 CORS(app)
@@ -202,6 +202,7 @@ def search():
 
 @app.route('/api/stock/<symbol>', methods=['GET'])
 @requires_permission('stock:read')
+@requires_us_market
 def get_stock_data(symbol):
     """获取股票历史数据和技术指标"""
     start_date = request.args.get('start_date', '')
@@ -209,8 +210,8 @@ def get_stock_data(symbol):
     
     try:
         df = fetch_stock_data(symbol, start_date, end_date)
-    except requests.exceptions.RequestException:
-        return jsonify({'error': '数据源网络异常，请稍后重试'}), 503
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': str(e)}), 503
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
@@ -282,6 +283,7 @@ def get_stock_data(symbol):
 
 @app.route('/api/backtest', methods=['POST'])
 @requires_backtest_quota
+@requires_us_market
 def backtest():
     """运行回测"""
     data = request.json
