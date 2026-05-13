@@ -211,3 +211,9 @@ export async function getSubscriptionPlans() {
   const data = await res.json();
   return data.data || [];
 }
+
+export async function getActivationInfo() {
+  const res = await fetchWithAuth(`${API_BASE}/activation/info`);
+  const data = await res.json();
+  return data;
+}

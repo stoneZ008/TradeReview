@@ -215,6 +215,11 @@ dist/
 # Backend runtime
 backend/server.log
 backend/watchlist.json
+backend/certs/*.pem
+backend/certs/*.key
+backend/.env
+backend/venv/
+venv/
 
 # IDE
 .vscode/

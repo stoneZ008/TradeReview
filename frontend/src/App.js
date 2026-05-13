@@ -188,7 +188,7 @@ function HomePage() {
       <header className="header">
         <div className="logo">
           <div className="logo-icon">📈</div>
-          <span className="logo-text">ATradeReview</span>
+          <span className="logo-text">禅动参考</span>
         </div>
 
         <div className="nav-tabs">
@@ -284,7 +284,7 @@ function HomePage() {
                      className="user-dropdown-item"
                      onClick={() => setShowUserMenu(false)}
                    >
-                     订阅付费
+                     开通会员
                    </Link>
                    {(hasRole('admin') || hasRole('super_admin')) && (
                      <Link
@@ -394,12 +394,12 @@ function App() {
     <AuthProvider>
       <Router>
          <Routes>
-           <Route path="/login" element={<LoginPage />} />
-           <Route path="/register" element={<RegisterPage />} />
-           <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-           <Route path="/subscription" element={<PrivateRoute><SubscriptionPage /></PrivateRoute>} />
-           <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />
-           <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+            <Route path="/subscription" element={<PrivateRoute><SubscriptionPage /></PrivateRoute>} />
+            <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />
+            <Route path="/" element={<HomePage />} />
          </Routes>
       </Router>
     </AuthProvider>

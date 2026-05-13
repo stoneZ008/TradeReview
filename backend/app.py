@@ -605,5 +605,31 @@ def get_subscription_plans():
     
     return jsonify({'data': plans})
 
+
+# 知识星球开通入口配置（可通过环境变量覆盖）
+ZSXQ_GROUP_NAME = os.environ.get('ZSXQ_GROUP_NAME', 'TradeReview 交易复盘')
+ZSXQ_JOIN_URL = os.environ.get('ZSXQ_JOIN_URL', 'https://t.zsxq.com/your-invite-code')
+ZSXQ_QR_URL = os.environ.get('ZSXQ_QR_URL', '')
+ZSXQ_CONTACT = os.environ.get('ZSXQ_CONTACT', '加入知识星球后，请将昵称/星球账号发送给管理员开通账户权限')
+
+
+@app.route('/api/activation/info', methods=['GET'])
+@optional_jwt
+def get_activation_info():
+    """返回知识星球开通方式说明"""
+    return jsonify({
+        'group_name': ZSXQ_GROUP_NAME,
+        'join_url': ZSXQ_JOIN_URL,
+        'qr_url': ZSXQ_QR_URL,
+        'contact': ZSXQ_CONTACT,
+        'instructions': [
+            '通过下方链接或二维码加入知识星球',
+            '加入成功后，将您的星球昵称/账号告知管理员',
+            '管理员审核后，将在后台为您开通对应账户权限',
+            '开通后即可在本站享受对应套餐功能'
+        ]
+    })
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

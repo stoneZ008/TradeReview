@@ -221,10 +221,10 @@ def seed_initial_data():
                       (role_map['guest'], perm_map[perm_name]))
     
     plans = [
-        ('trial', 0, 0, 10, json.dumps({'indicators': True, 'dao_page': True}), '10天试用'),
-        ('basic', 29, 290, 20, json.dumps({'indicators': True, 'dao_page': False}), '基础版'),
-        ('pro', 99, 990, 100, json.dumps({'indicators': True, 'dao_page': True}), '专业版'),
-        ('enterprise', 299, 2990, -1, json.dumps({'indicators': True, 'dao_page': True, 'priority_support': True}), '企业版')
+        ('trial', 0, 0, 10, json.dumps({'indicators': True, 'dao_page': True}), '新用户注册自动获得 10 天试用'),
+        ('basic', 0, 0, 20, json.dumps({'indicators': True, 'dao_page': False}), '基础版（知识星球开通）'),
+        ('pro', 0, 0, 100, json.dumps({'indicators': True, 'dao_page': True}), '专业版（知识星球开通）'),
+        ('enterprise', 0, 0, -1, json.dumps({'indicators': True, 'dao_page': True, 'priority_support': True}), '企业版（知识星球开通）')
     ]
     for name, monthly_price, yearly_price, max_backtests, features, desc in plans:
         cursor.execute('''
