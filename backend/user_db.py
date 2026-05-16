@@ -134,12 +134,18 @@ def init_user_db():
     conn.close()
 
 def seed_initial_data():
+    import os
     init_user_db()
     conn = get_connection()
     cursor = conn.cursor()
     
     cursor.execute('SELECT COUNT(*) FROM roles')
-    if cursor.fetchone()[0] > 0:
+    roles_exist = cursor.fetchone()[0] > 0
+    
+    cursor.execute('SELECT COUNT(*) FROM users')
+    users_exist = cursor.fetchone()[0] > 0
+    
+    if roles_exist and users_exist:
         conn.close()
         return
     
@@ -231,6 +237,45 @@ def seed_initial_data():
             INSERT INTO subscription_plans (name, monthly_price, yearly_price, max_backtests_monthly, features_json, description)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (name, monthly_price, yearly_price, max_backtests, features, desc))
+    
+    cursor.execute('SELECT COUNT(*) FROM users WHERE id = 1')
+    if cursor.fetchone()[0] == 0:
+        from flask_bcrypt import generate_password_hash
+        from datetime import datetime, timedelta
+        
+        admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+        admin_email = os.environ.get('ADMIN_EMAIL', 'admin@tradereview.local')
+        admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+        
+        password_hash = generate_password_hash(admin_password).decode('utf-8')
+        trial_end = (datetime.now() + timedelta(days=365*10)).isoformat()
+        
+        cursor.execute('''
+            INSERT INTO users (username, email, password_hash, trial_end_at, is_active)
+            VALUES (?, ?, ?, ?, 1)
+        ''', (admin_username, admin_email, password_hash, trial_end))
+        
+        admin_id = cursor.lastrowid
+        
+        cursor.execute('SELECT id FROM roles WHERE name = ?', ('super_admin',))
+        super_admin_role_id = cursor.fetchone()[0]
+        
+        cursor.execute('''
+            INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)
+        ''', (admin_id, super_admin_role_id))
+        
+        cursor.execute('SELECT id FROM subscription_plans WHERE name = ?', ('enterprise',))
+        enterprise_plan_id = cursor.fetchone()[0]
+        
+        start_date = datetime.now().isoformat()
+        end_date = (datetime.now() + timedelta(days=365*10)).isoformat()
+        
+        cursor.execute('''
+            INSERT INTO subscriptions (user_id, plan_id, start_date, end_date, status, assigned_by)
+            VALUES (?, ?, ?, ?, 'active', 0)
+        ''', (admin_id, enterprise_plan_id, start_date, end_date))
+        
+        print(f'默认管理员账号已创建: {admin_username} / {admin_email}')
     
     conn.commit()
     conn.close()

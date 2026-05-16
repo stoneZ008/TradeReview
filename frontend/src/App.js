@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import DaoPage from './components/DaoPage';
 import KlineChart from './components/KlineChart';
@@ -35,7 +35,9 @@ function PrivateRoute({ children }) {
 
 function HomePage() {
   const { user, logout, isAuthenticated, hasRole, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [symbol, setSymbol] = useState('600519');
+  const [inputSymbol, setInputSymbol] = useState('600519');
   const [activePage, setActivePage] = useState('shu');
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -82,11 +84,13 @@ function HomePage() {
 
   const selectWatchStock = (stock) => {
     setSymbol(stock.code);
+    setInputSymbol(stock.code);
     fetchDataForCode(stock.code);
   };
 
   const handleStockSelectFromDao = (code) => {
     setSymbol(code);
+    setInputSymbol(code);
     setActivePage('shu');
     fetchDataForCode(code);
   };
@@ -220,8 +224,14 @@ function HomePage() {
               <label>股票代码</label>
               <input
                 className="input"
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
+                value={inputSymbol}
+                onChange={(e) => setInputSymbol(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setSymbol(inputSymbol);
+                    fetchData();
+                  }
+                }}
                 placeholder="输入代码"
               />
             </div>
@@ -246,7 +256,7 @@ function HomePage() {
               />
             </div>
 
-            <button className="btn btn-primary" onClick={fetchData} disabled={loading}>
+            <button className="btn btn-primary" onClick={() => { setSymbol(inputSymbol); fetchData(); }} disabled={loading}>
               {loading ? '加载中...' : '获取数据'}
             </button>
 
@@ -296,11 +306,11 @@ function HomePage() {
                      </Link>
                    )}
                    <button
-                     onClick={() => { logout(); setShowUserMenu(false); }}
-                     className="user-dropdown-item text-danger"
-                   >
-                     退出登录
-                   </button>
+                      onClick={() => { logout(); setShowUserMenu(false); navigate('/login'); }}
+                      className="user-dropdown-item text-danger"
+                    >
+                      退出登录
+                    </button>
                  </div>
                )}
             </div>
@@ -308,9 +318,6 @@ function HomePage() {
             <div style={{ display: 'flex', gap: '8px' }}>
               <Link to="/login" className="btn" style={{ background: 'transparent', color: 'var(--text-primary)' }}>
                 登录
-              </Link>
-              <Link to="/register" className="btn btn-primary">
-                注册
               </Link>
             </div>
           )}

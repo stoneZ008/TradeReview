@@ -152,6 +152,14 @@ export async function adminGetAuditLogs() {
   return data.data || [];
 }
 
+export async function adminCleanLoginLogs() {
+  const res = await fetchWithAuth(`${API_BASE}/admin/audit-logs/clean-login`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  return data;
+}
+
 export async function fetchStockData(symbol, startDate, endDate) {
   const res = await fetchWithAuth(`${API_BASE}/stock/${symbol}?start_date=${startDate}&end_date=${endDate}`);
   const data = await res.json();

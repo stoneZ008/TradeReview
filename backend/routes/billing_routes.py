@@ -29,7 +29,7 @@ def get_my_subscription():
 
 
 ZSXQ_GROUP_NAME = os.environ.get('ZSXQ_GROUP_NAME', 'TradeReview 交易复盘')
-ZSXQ_JOIN_URL = os.environ.get('ZSXQ_JOIN_URL', 'https://t.zsxq.com/your-invite-code')
+ZSXQ_JOIN_URL = os.environ.get('ZSXQ_JOIN_URL', 'https://t.zsxq.com/fPcnb')
 ZSXQ_QR_URL = os.environ.get('ZSXQ_QR_URL', '')
 ZSXQ_CONTACT = os.environ.get('ZSXQ_CONTACT', '加入知识星球后，请将昵称/星球账号发送给管理员开通账户权限')
 

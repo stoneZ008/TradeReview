@@ -78,3 +78,26 @@ def admin_audit_logs():
     conn.close()
     
     return jsonify({'data': [dict(row) for row in rows]})
+
+
+@admin_bp.route('/audit-logs/clean-login', methods=['DELETE'])
+@requires_roles('super_admin', 'admin')
+def admin_clean_login_logs():
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        DELETE FROM audit_logs 
+        WHERE action = 'login' 
+        AND id IN (
+            SELECT id FROM audit_logs 
+            WHERE action = 'login' 
+            ORDER BY id ASC 
+            LIMIT 100
+        )
+    ''')
+    deleted_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'deleted_count': deleted_count})

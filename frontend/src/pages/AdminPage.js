@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { adminGetUsers, adminAssignSubscription, adminAssignRole, adminCreateUser, adminGetAuditLogs, getPlans } from '../api';
+import { adminGetUsers, adminAssignSubscription, adminAssignRole, adminCreateUser, adminGetAuditLogs, getPlans, adminCleanLoginLogs } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminPage() {
@@ -10,7 +10,15 @@ export default function AdminPage() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showAddUserForm, setShowAddUserForm] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', email: '', password: '' });
+  const [showToast, setShowToast] = useState({ show: false, type: '', text: '' });
   const { hasRole } = useAuth();
+
+  const showNotification = (type, text) => {
+    setShowToast({ show: true, type, text });
+    setTimeout(() => {
+      setShowToast({ show: false, type: '', text: '' });
+    }, 2500);
+  };
 
   useEffect(() => {
     loadData();
@@ -34,20 +42,20 @@ export default function AdminPage() {
   const handleAssignPlan = async (userId, planName) => {
     try {
       await adminAssignSubscription(userId, planName, false);
-      setMessage({ type: 'success', text: '套餐分配成功' });
+      showNotification('success', '套餐分配成功');
       loadData();
     } catch (e) {
-      setMessage({ type: 'error', text: e.message });
+      showNotification('error', e.message);
     }
   };
 
   const handleAssignRole = async (userId, roleName) => {
     try {
       await adminAssignRole(userId, roleName);
-      setMessage({ type: 'success', text: '角色分配成功' });
+      showNotification('success', '角色分配成功');
       loadData();
     } catch (e) {
-      setMessage({ type: 'error', text: e.message });
+      showNotification('error', e.message);
     }
   };
 
@@ -55,12 +63,12 @@ export default function AdminPage() {
     e.preventDefault();
     try {
       await adminCreateUser(newUser.username, newUser.email, newUser.password);
-      setMessage({ type: 'success', text: '用户创建成功' });
+      showNotification('success', '用户创建成功');
       setNewUser({ username: '', email: '', password: '' });
       setShowAddUserForm(false);
       loadData();
     } catch (e) {
-      setMessage({ type: 'error', text: e.message });
+      showNotification('error', e.message);
     }
   };
 
@@ -90,6 +98,48 @@ export default function AdminPage() {
 
   return (
     <div className="profile-page">
+      <style>{`
+        .toast-notification {
+          position: fixed;
+          top: 24px;
+          right: 24px;
+          z-index: 9999;
+          padding: 16px 24px;
+          border-radius: 10px;
+          color: white;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          animation: toastSlide 0.3s ease;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+          min-width: 200px;
+        }
+        .toast-notification.success {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .toast-notification.error {
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        @keyframes toastSlide {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {showToast.show && (
+        <div className={`toast-notification ${showToast.type}`}>
+          <span>{showToast.type === 'success' ? '✅' : '❌'}</span>
+          <span>{showToast.text}</span>
+        </div>
+      )}
+
       <div className="profile-container" style={{ maxWidth: '1200px' }}>
         <h1 className="profile-title">管理后台</h1>
 
@@ -168,21 +218,25 @@ export default function AdminPage() {
                   </form>
                 )}
               </div>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>用户名</th>
-                    <th>邮箱</th>
-                    <th>角色</th>
-                    <th>当前套餐</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id}>
-                      <td style={{ fontWeight: 500 }}>{user.username}</td>
-                      <td>{user.email}</td>
+               <table className="data-table">
+                 <thead>
+                   <tr>
+                     <th>用户名</th>
+                     <th>邮箱</th>
+                     <th>创建时间</th>
+                     <th>角色</th>
+                     <th>当前套餐</th>
+                     <th>操作</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {users.map((user) => (
+                     <tr key={user.id}>
+                       <td style={{ fontWeight: 500 }}>{user.username}</td>
+                       <td>{user.email}</td>
+                       <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                         {user.created_at ? new Date(user.created_at).toLocaleString() : '-'}
+                       </td>
                        <td>
                          {hasRole('super_admin') ? (
                            <select
@@ -231,6 +285,24 @@ export default function AdminPage() {
         {activeTab === 'logs' && (
           <div className="card">
             <div className="card-body" style={{ padding: 0 }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '16px' }}>审计日志</h3>
+                <button
+                  onClick={async () => {
+                    try {
+                      const result = await adminCleanLoginLogs();
+                      showNotification('success', `已清理 ${result.deleted_count} 条登录日志`);
+                      loadData();
+                    } catch (e) {
+                      showNotification('error', e.message);
+                    }
+                  }}
+                  className="btn btn-warning"
+                  style={{ padding: '8px 16px', fontSize: '14px' }}
+                >
+                  🗑️ 清理登录日志 (100条)
+                </button>
+              </div>
               <table className="data-table">
                 <thead>
                   <tr>

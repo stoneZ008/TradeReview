@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -31,12 +31,8 @@ export default function LoginPage() {
           <div className="auth-logo">📈</div>
           <h2 className="auth-title">登录</h2>
         </div>
-        
-        {error && (
-          <div className="auth-error">
-            {error}
-          </div>
-        )}
+
+        {error && <div className="auth-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
@@ -61,21 +57,10 @@ export default function LoginPage() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary btn-block"
-          >
+          <button type="submit" disabled={loading} className="btn btn-primary btn-block">
             {loading ? '登录中...' : '登录'}
           </button>
         </form>
-
-        <div className="auth-footer">
-          <span>还没有账号？</span>
-          <Link to="/register" className="auth-link">
-            立即注册
-          </Link>
-        </div>
       </div>
     </div>
   );

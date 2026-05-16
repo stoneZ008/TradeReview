@@ -120,18 +120,34 @@ export default function SubscriptionPage() {
           align-items: center;
         }
         .zsxq-btn {
-          background: var(--accent-blue);
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
           border: none;
-          padding: 12px 28px;
-          border-radius: 8px;
-          font-size: 15px;
-          font-weight: 600;
+          padding: 16px 36px;
+          border-radius: 12px;
+          font-size: 17px;
+          font-weight: 700;
           cursor: pointer;
           text-decoration: none;
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+          transition: all 0.3s ease;
+          animation: pulse-btn 2s infinite;
         }
-        .zsxq-btn:hover { opacity: 0.9; }
+        .zsxq-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+        }
+        @keyframes pulse-btn {
+          0%, 100% {
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+          }
+          50% {
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.6);
+          }
+        }
         .copy-btn {
           background: var(--bg-tertiary);
           color: var(--text-primary);
@@ -234,7 +250,7 @@ export default function SubscriptionPage() {
             <div className="activation-card">
               <div className="activation-title">📚 加入知识星球开通账号</div>
               <div className="activation-desc">
-                本平台不提供在线支付能力。请加入「{activation?.group_name}」知识星球，
+                请加入「细水长流」知识星球，
                 加入后联系管理员，由管理员在后台为您开通对应套餐权限。
               </div>
 
@@ -255,13 +271,8 @@ export default function SubscriptionPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    加入知识星球
+                    🚀 加入知识星球
                   </a>
-                )}
-                {user?.username && (
-                  <button className="copy-btn" onClick={copyContact}>
-                    复制我的账号: {user.username}
-                  </button>
                 )}
               </div>
 
@@ -278,84 +289,6 @@ export default function SubscriptionPage() {
               }}>
                 {activation?.contact}
               </div>
-            </div>
-
-            <div style={{
-              fontSize: '18px',
-              fontWeight: 600,
-              color: 'var(--text-primary)',
-              marginBottom: '16px'
-            }}>
-              套餐权益对比
-            </div>
-
-            <div className="plans-grid">
-              {plans.filter(p => p.name !== 'trial').map((plan) => (
-                <div
-                  key={plan.id}
-                  className={`plan-card ${isCurrentPlan(plan.name) ? 'current' : ''}`}
-                >
-                  {isCurrentPlan(plan.name) && (
-                    <div className="plan-badge">当前套餐</div>
-                  )}
-
-                  <div className="plan-name">{plan.name_cn}</div>
-                  <div className="plan-description">{plan.description}</div>
-
-                  <div className="plan-features">
-                    <div className="feature-item">
-                      <span className="feature-icon">✓</span>
-                      回测次数: {formatBacktestLimit(plan.max_backtests_monthly)}
-                    </div>
-                    <div className="feature-item">
-                      <span className="feature-icon">✓</span>
-                      技术指标分析
-                    </div>
-                    {plan.features?.dao_page && (
-                      <div className="feature-item">
-                        <span className="feature-icon">✓</span>
-                        认知之道页面
-                      </div>
-                    )}
-                    {plan.name === 'enterprise' && (
-                      <div className="feature-item">
-                        <span className="feature-icon">✓</span>
-                        美股买卖点分析
-                      </div>
-                    )}
-                    {plan.features?.priority_support && (
-                      <div className="feature-item">
-                        <span className="feature-icon">✓</span>
-                        优先技术支持
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="info-banner">
-              <div style={{ fontWeight: 600, marginBottom: '12px' }}>我的当前订阅</div>
-              <div className="info-item">
-                <span>当前套餐</span>
-                <span className="info-value">
-                  {user?.subscription?.plan_name_cn || (user?.is_trial_active ? '试用版' : '免费用户')}
-                </span>
-              </div>
-              <div className="info-item">
-                <span>订阅状态</span>
-                <span className={`info-value ${user?.subscription?.status === 'active' ? 'active' : 'expired'}`}>
-                  {user?.subscription?.status === 'active' ? '有效' : (user?.is_trial_active ? '试用中' : '未开通')}
-                </span>
-              </div>
-              {user?.subscription?.end_date && (
-                <div className="info-item">
-                  <span>到期时间</span>
-                  <span className="info-value">
-                    {new Date(user.subscription.end_date).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
             </div>
           </>
         )}

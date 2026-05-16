@@ -152,8 +152,8 @@
 
 ```env
 ZSXQ_GROUP_NAME=TradeReview 交易复盘
-ZSXQ_JOIN_URL=https://t.zsxq.com/your-invite-code
-ZSXQ_QR_URL=https://your-cdn.com/zsxq-qr.png
+ZSXQ_JOIN_URL=https://t.zsxq.com/fPcnb
+ZSXQ_QR_URL=
 ZSXQ_CONTACT=加入知识星球后，请将昵称/星球账号发送给管理员开通账户权限
 ```
 
@@ -187,7 +187,15 @@ python3 app.py
 
 ### 环境变量
 ```env
+# JWT 密钥
 JWT_SECRET_KEY=your-secret-key-here
+
+# 默认管理员账号（首次启动自动创建）
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@tradereview.local
+ADMIN_PASSWORD=admin123
+
+# 知识星球配置
 ZSXQ_JOIN_URL=https://t.zsxq.com/your-invite-code
 ZSXQ_QR_URL=https://your-cdn.com/zsxq-qr.png
 ```
@@ -196,8 +204,13 @@ ZSXQ_QR_URL=https://your-cdn.com/zsxq-qr.png
 
 首次启动时会自动初始化数据库表和默认数据：
 - 创建所有表结构
-- 初始化默认角色和权限
-- 创建套餐配置（价格字段保留为 0，仅作为权限分组）
+- 初始化默认角色和权限（super_admin、admin、user_pro、user_basic、user_free、guest）
+- 创建套餐配置（trial、basic、pro、enterprise）
+- **自动创建默认超级管理员账号**：
+  - 用户名：`admin`（可通过环境变量 `ADMIN_USERNAME` 修改）
+  - 邮箱：`admin@tradereview.local`（可通过环境变量 `ADMIN_EMAIL` 修改）
+  - 密码：`admin123`（可通过环境变量 `ADMIN_PASSWORD` 修改）
+  - 默认拥有企业版订阅，10年有效期
 
 ## 安全特性
 
