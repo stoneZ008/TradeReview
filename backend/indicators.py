@@ -250,3 +250,92 @@ def calculate_all_indicators(df):
     result['candle_pattern'] = detect_candle_patterns(df)
     
     return result
+
+
+def find_support_resistance(df, lookback_days=60, n_support=3, n_resistance=3):
+    """
+    计算支撑位和压力位
+    算法：历史高低点 + 均线支撑/压力
+    
+    返回: {
+        'support_levels': [{'price': float, 'type': str, 'strength': str}],
+        'resistance_levels': [{'price': float, 'type': str, 'strength': str}]
+    }
+    """
+    if len(df) < 20:
+        return {'support_levels': [], 'resistance_levels': []}
+    
+    # 取最近N天数据
+    recent_df = df.tail(lookback_days)
+    current_price = df['close'].iloc[-1]
+    
+    levels = []
+    
+    # 1. 历史高低点 (局部极值)
+    # 局部高点检测
+    highs = recent_df['high'].values
+    for i in range(2, len(highs) - 2):
+        if highs[i] > highs[i-1] and highs[i] > highs[i-2] and highs[i] > highs[i+1] and highs[i] > highs[i+2]:
+            levels.append({'price': highs[i], 'type': '历史高点', 'strength': '强'})
+    
+    # 局部低点检测
+    lows = recent_df['low'].values
+    for i in range(2, len(lows) - 2):
+        if lows[i] < lows[i-1] and lows[i] < lows[i-2] and lows[i] < lows[i+1] and lows[i] < lows[i+2]:
+            levels.append({'price': lows[i], 'type': '历史低点', 'strength': '强'})
+    
+    # 2. 均线支撑/压力
+    ma_periods = [20, 60]
+    for period in ma_periods:
+        if len(df) >= period:
+            ma_value = calculate_sma(df['close'], period).iloc[-1]
+            if not pd.isna(ma_value):
+                if ma_value < current_price:
+                    levels.append({'price': ma_value, 'type': f'MA{period}', 'strength': '中'})
+                else:
+                    levels.append({'price': ma_value, 'type': f'MA{period}', 'strength': '中'})
+    
+    # 3. 布林带上下轨
+    boll = calculate_boll(df)
+    if not pd.isna(boll['upper'].iloc[-1]):
+        levels.append({'price': boll['upper'].iloc[-1], 'type': '布林上轨', 'strength': '中'})
+    if not pd.isna(boll['lower'].iloc[-1]):
+        levels.append({'price': boll['lower'].iloc[-1], 'type': '布林下轨', 'strength': '中'})
+    
+    # 分离支撑位（低于当前价）和压力位（高于当前价）
+    support_levels = [l for l in levels if l['price'] < current_price]
+    resistance_levels = [l for l in levels if l['price'] > current_price]
+    
+    # 按距离当前价排序：支撑位从高到低（接近当前价在前），压力位从低到高
+    support_levels = sorted(support_levels, key=lambda x: -x['price'])
+    resistance_levels = sorted(resistance_levels, key=lambda x: x['price'])
+    
+    # 合并相近价位 (间距小于1%视为同一价位)
+    def merge_close_levels(levels, threshold=0.01):
+        if not levels:
+            return []
+        merged = [levels[0]]
+        for level in levels[1:]:
+            last = merged[-1]
+            if abs(level['price'] - last['price']) / last['price'] < threshold:
+                # 合并：取平均值，强度升级
+                last['price'] = (last['price'] + level['price']) / 2
+                if last['strength'] == '中' and level['strength'] == '强':
+                    last['strength'] = '强'
+                if last['type'] != level['type']:
+                    last['type'] = last['type'] + '/' + level['type']
+            else:
+                merged.append(level)
+        return merged
+    
+    support_levels = merge_close_levels(support_levels)
+    resistance_levels = merge_close_levels(resistance_levels)
+    
+    # 只保留指定数量
+    support_levels = support_levels[:n_support]
+    resistance_levels = resistance_levels[:n_resistance]
+    
+    return {
+        'support_levels': support_levels,
+        'resistance_levels': resistance_levels
+    }

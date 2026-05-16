@@ -118,6 +118,29 @@ def _fetch_sina(symbol, start_date, end_date):
     return df
 
 
+def _fetch_yfinance(symbol, start_date, end_date):
+    """用 yfinance 获取美股数据"""
+    try:
+        import yfinance as yf
+        # YYYYMMDD -> YYYY-MM-DD
+        s = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}"
+        e = f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:]}"
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(start=s, end=e, auto_adjust=False)
+        if hist.empty:
+            return pd.DataFrame()
+        hist = hist.reset_index()
+        hist.rename(columns={'Date': 'date', 'Open': 'open', 'High': 'high', 
+                             'Low': 'low', 'Close': 'close', 'Volume': 'volume'}, inplace=True)
+        hist['date'] = pd.to_datetime(hist['date'])
+        hist = hist.set_index('date')
+        hist['amount'] = hist['close'] * hist['volume'] / 1e6  # 估算成交额
+        return hist.sort_index()
+    except Exception as e:
+        print(f"yfinance获取失败: {e}")
+        return pd.DataFrame()
+
+
 def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
     symbol = symbol.strip().upper()
     if symbol.startswith(('SH', 'SZ')):
@@ -128,7 +151,17 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
     if start_date is None:
         start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
     
-    # 东方财富统一接口：支持 A股 + 美股
+    # 美股优先用 yfinance（东方财富美股接口不稳定）
+    if is_us_stock(symbol):
+        try:
+            df = _fetch_yfinance(symbol, start_date, end_date)
+            if not df.empty:
+                return df
+            print("yfinance返回空数据，尝试东方财富")
+        except Exception as e:
+            print(f"yfinance异常: {e}，尝试东方财富")
+    
+    # 东方财富接口：A 股主力，美股备用
     try:
         df = _fetch_eastmoney(symbol, start_date, end_date, adjust)
         if not df.empty:
@@ -139,7 +172,7 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
     except Exception as e:
         print(f"东方财富获取失败: {e}")
     
-    # A股回退到新浪财经（美股新浪接口不同，暂不降级）
+    # A股回退到新浪财经
     if not is_us_stock(symbol):
         try:
             print("回退到新浪财经")
@@ -150,10 +183,10 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
         except Exception as e:
             print(f"新浪财经获取失败: {e}")
     
-    # 美股友好提示
+    # 最终友好提示
     if is_us_stock(symbol):
         raise requests.exceptions.RequestException(
-            f"未找到美股 {symbol} 的数据，请检查代码是否正确，或尝试：AAPL, MSFT, GOOGL, AMZN, TSLA, META, NVDA"
+            f"获取美股 {symbol} 数据失败（可能是API限流，稍后重试）。代码示例：AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA"
         )
     
     raise requests.exceptions.RequestException(f"获取 {symbol} 数据失败")
@@ -251,6 +284,30 @@ def _get_stock_info_sina(symbol):
     return None
 
 
+def _get_stock_info_yfinance(symbol):
+    """用 yfinance 获取美股基本信息"""
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        info = ticker.info
+        if not info:
+            return None
+        return {
+            'code': symbol,
+            'name': info.get('shortName', info.get('longName', symbol)),
+            'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
+            'high': info.get('dayHigh', 0),
+            'low': info.get('dayLow', 0),
+            'open': info.get('open', 0),
+            'volume': info.get('volume', 0),
+            'amount': info.get('marketCap', 0),
+            'pct_change': info.get('regularMarketChangePercent', 0)
+        }
+    except Exception as e:
+        print(f"yfinance股票信息失败: {e}")
+        return None
+
+
 def get_stock_info(symbol):
     symbol = symbol.strip().upper()
     if symbol.startswith(('SH', 'SZ')):
@@ -287,6 +344,12 @@ def get_stock_info(symbol):
         except Exception as e:
             continue
     
+    # 美股优先用 yfinance 获取名称
+    if is_us_stock(symbol):
+        info = _get_stock_info_yfinance(symbol)
+        if info:
+            return info
+    
     # A股回退到新浪
     if not is_us_stock(symbol):
         try:
@@ -294,7 +357,7 @@ def get_stock_info(symbol):
         except Exception as e:
             print(f"新浪获取股票信息失败: {e}")
     
-    # 美股返回基本信息（至少包含代码作为名称）
+    # 返回基本信息（至少包含代码作为名称）
     return {
         'code': symbol,
         'name': symbol,
