@@ -24,10 +24,7 @@ export default function ProfilePage() {
 
   const loadData = async () => {
     try {
-      const [subData, plansData] = await Promise.all([
-        getMySubscription(),
-        getPlans()
-      ]);
+      const [subData, plansData] = await Promise.all([getMySubscription(), getPlans()]);
       setSubscription(subData);
       setPlans(plansData);
     } catch (e) {
@@ -82,9 +79,9 @@ export default function ProfilePage() {
     if (user?.is_trial_active) {
       return { name: '试用版', is_trial: true };
     }
-    const plan = plans.find(p => p.id === subscription?.subscription?.plan_id);
+    const plan = plans.find((p) => p.id === subscription?.subscription?.plan_id);
     if (plan) return plan;
-    return plans.find(p => p.name === 'basic') || { name: '基础版' };
+    return plans.find((p) => p.name === 'basic') || { name: '基础版' };
   };
 
   const formatDate = (dateStr) => {
@@ -97,11 +94,7 @@ export default function ProfilePage() {
       <div className="profile-container">
         <h1 className="profile-title">个人中心</h1>
 
-        {message.text && (
-          <div className={`message-box ${message.type}`}>
-            {message.text}
-          </div>
-        )}
+        {message.text && <div className={`message-box ${message.type}`}>{message.text}</div>}
 
         <div className="card">
           <div className="card-header">
@@ -110,21 +103,27 @@ export default function ProfilePage() {
           <div className="card-body">
             <div className="plan-info" style={{ marginBottom: '16px' }}>
               <span className="plan-name" style={{ fontSize: '24px', fontWeight: 600 }}>
-                {getCurrentPlan()?.name === 'basic' ? '基础版' : 
-                 getCurrentPlan()?.name === 'pro' ? '专业版' : 
-                 getCurrentPlan()?.name === 'enterprise' ? '企业版' : 
-                 getCurrentPlan()?.name || '基础版'}
+                {getCurrentPlan()?.name === 'basic'
+                  ? '基础版'
+                  : getCurrentPlan()?.name === 'pro'
+                    ? '专业版'
+                    : getCurrentPlan()?.name === 'enterprise'
+                      ? '企业版'
+                      : getCurrentPlan()?.name || '基础版'}
               </span>
               {user?.is_trial_active && (
-                <span className="trial-badge" style={{ 
-                  background: '#fef3c7', 
-                  color: '#d97706',
-                  padding: '4px 12px',
-                  borderRadius: '12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  marginLeft: '12px'
-                }}>
+                <span
+                  className="trial-badge"
+                  style={{
+                    background: '#fef3c7',
+                    color: '#d97706',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    marginLeft: '12px',
+                  }}
+                >
                   试用中
                 </span>
               )}
@@ -132,7 +131,13 @@ export default function ProfilePage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               {subscription?.subscription?.start_date && (
                 <div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      marginBottom: '4px',
+                    }}
+                  >
                     生效日期
                   </div>
                   <div style={{ fontWeight: 500 }}>
@@ -142,7 +147,13 @@ export default function ProfilePage() {
               )}
               {subscription?.subscription?.end_date && (
                 <div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      marginBottom: '4px',
+                    }}
+                  >
                     到期日期
                   </div>
                   <div style={{ fontWeight: 500 }}>
@@ -152,18 +163,30 @@ export default function ProfilePage() {
               )}
               {subscription?.backtest_quota && (
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      marginBottom: '4px',
+                    }}
+                  >
                     本月回测配额
                   </div>
                   <div style={{ fontWeight: 500 }}>
-                    {subscription.backtest_quota.used} / {
-                      subscription.backtest_quota.max === -1 ? '无限' : subscription.backtest_quota.max
-                    }
+                    {subscription.backtest_quota.used} /{' '}
+                    {subscription.backtest_quota.max === -1
+                      ? '无限'
+                      : subscription.backtest_quota.max}
                     {subscription.backtest_quota.max !== -1 && (
-                      <span style={{ 
-                        marginLeft: '8px', 
-                        color: subscription.backtest_quota.remaining < 3 ? 'var(--danger)' : 'var(--text-secondary)'
-                      }}>
+                      <span
+                        style={{
+                          marginLeft: '8px',
+                          color:
+                            subscription.backtest_quota.remaining < 3
+                              ? 'var(--danger)'
+                              : 'var(--text-secondary)',
+                        }}
+                      >
                         (剩余: {subscription.backtest_quota.remaining})
                       </span>
                     )}
@@ -198,11 +221,7 @@ export default function ProfilePage() {
                   className="form-input"
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary"
-              >
+              <button type="submit" disabled={loading} className="btn btn-primary">
                 保存修改
               </button>
             </form>
@@ -242,11 +261,7 @@ export default function ProfilePage() {
                   className="form-input"
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary"
-              >
+              <button type="submit" disabled={loading} className="btn btn-primary">
                 修改密码
               </button>
             </form>

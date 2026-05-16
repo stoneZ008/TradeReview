@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 function CompanyCard({ company, onSelect, onEdit, onDelete }) {
   const { hasRole } = useAuth();
   const canEdit = hasRole('admin') || hasRole('super_admin');
-  
+
   const handleEdit = (e) => {
     e.stopPropagation();
     if (onEdit) {

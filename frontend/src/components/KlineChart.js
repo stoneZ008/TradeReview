@@ -335,10 +335,7 @@ export default function KlineChart({ stockData, symbol }) {
       {
         query: { maxWidth: 768 },
         option: {
-          title: [
-            { textStyle: { fontSize: 16 } },
-            { textStyle: { fontSize: 11 } },
-          ],
+          title: [{ textStyle: { fontSize: 16 } }, { textStyle: { fontSize: 11 } }],
           legend: { top: signalTag ? 48 : 8, textStyle: { fontSize: 10 } },
           grid: [
             { left: '8%', right: '3%', top: signalTag ? '22%' : '15%', height: '45%' },

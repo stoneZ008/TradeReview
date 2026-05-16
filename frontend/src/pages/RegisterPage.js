@@ -49,11 +49,7 @@ export default function RegisterPage() {
           注册即可获得 <strong>10天专业版试用</strong>
         </div>
 
-        {error && (
-          <div className="auth-error">
-            {error}
-          </div>
-        )}
+        {error && <div className="auth-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
@@ -100,11 +96,7 @@ export default function RegisterPage() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary btn-block"
-          >
+          <button type="submit" disabled={loading} className="btn btn-primary btn-block">
             {loading ? '注册中...' : '注册'}
           </button>
         </form>

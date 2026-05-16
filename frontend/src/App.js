@@ -47,10 +47,15 @@ function HomePage() {
     if (!user) return false;
     const roles = user.roles || [];
     if (roles.includes('admin') || roles.includes('super_admin')) return true;
-    if (user.is_trial_active) return true;
     const userRole = roles[0];
-    return userRole === 'user_pro' || userRole === 'user_basic';
+    return userRole === 'user_pro';
   }, [user]);
+
+  React.useEffect(() => {
+    if (!hasDaoAccess && activePage === 'dao') {
+      setActivePage('shu');
+    }
+  }, [hasDaoAccess, activePage]);
 
   const getCurrentDate = () => {
     const today = new Date();
@@ -164,14 +169,16 @@ function HomePage() {
     setLoading(false);
   };
 
-  const fetchData = useCallback(async () => {
-    if (!symbol) {
+  const fetchData = useCallback(async (code) => {
+    const targetCode = code || symbol;
+    if (!targetCode) {
       alert('请输入股票代码');
       return;
     }
+    setSymbol(targetCode);
     setLoading(true);
     try {
-      const data = await apiFetchStockData(symbol, startDate, endDate, rsiPeriod);
+      const data = await apiFetchStockData(targetCode, startDate, endDate, rsiPeriod);
       setStockData(trimDataForMobile(data));
     } catch (e) {
       alert(e.message || '获取数据失败，请确保后端服务已启动');
@@ -246,20 +253,14 @@ function HomePage() {
         </div>
 
         <div className="nav-tabs">
-          <button
-            className={`nav-tab ${activePage === 'dao' ? 'active' : ''} ${!hasDaoAccess ? 'nav-tab-disabled' : ''}`}
-            onClick={() => {
-              if (hasDaoAccess) {
-                setActivePage('dao');
-              } else {
-                alert('请升级套餐以解锁认知之道页面');
-              }
-            }}
-            title={!hasDaoAccess ? '升级套餐以解锁认知之道页面' : ''}
-          >
-            认知之道
-            {!hasDaoAccess && <span style={{ fontSize: '10px', marginLeft: '4px', opacity: 0.7 }}>🔒</span>}
-          </button>
+          {hasDaoAccess && (
+            <button
+              className={`nav-tab ${activePage === 'dao' ? 'active' : ''}`}
+              onClick={() => setActivePage('dao')}
+            >
+              认知之道
+            </button>
+          )}
           <button
             className={`nav-tab ${activePage === 'shu' ? 'active' : ''}`}
             onClick={() => setActivePage('shu')}
@@ -278,8 +279,7 @@ function HomePage() {
                 onChange={(e) => setInputSymbol(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    setSymbol(inputSymbol);
-                    fetchData();
+                    fetchData(inputSymbol);
                   }
                 }}
                 placeholder="输入代码"
@@ -306,7 +306,7 @@ function HomePage() {
               />
             </div>
 
-            <button className="btn btn-primary" onClick={() => { setSymbol(inputSymbol); fetchData(); }} disabled={loading}>
+            <button className="btn btn-primary" onClick={() => fetchData(inputSymbol)} disabled={loading}>
               {loading ? '加载中...' : '获取数据'}
             </button>
 

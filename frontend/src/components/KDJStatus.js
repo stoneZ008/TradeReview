@@ -31,58 +31,76 @@ export default function KDJStatus({ stockData }) {
   }
 
   return (
-    <div style={{
-      padding: isMobile ? '8px 12px' : '12px 16px',
-      background: status.bg,
-      borderRadius: '8px',
-      border: `1px solid ${status.color}30`,
-      display: 'flex',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      gap: isMobile ? '8px' : '16px',
-      marginBottom: '8px'
-    }}>
+    <div
+      style={{
+        padding: isMobile ? '8px 12px' : '12px 16px',
+        background: status.bg,
+        borderRadius: '8px',
+        border: `1px solid ${status.color}30`,
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: isMobile ? '8px' : '16px',
+        marginBottom: '8px',
+      }}
+    >
       <div style={{ display: 'flex', gap: '16px' }}>
         <div>
-          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#888', marginBottom: '2px' }}>K</div>
-          <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', color: '#3b82f6' }}>
+          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#888', marginBottom: '2px' }}>
+            K
+          </div>
+          <div
+            style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', color: '#3b82f6' }}
+          >
             {k.toFixed(2)}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#888', marginBottom: '2px' }}>D</div>
-          <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', color: '#fbbf24' }}>
+          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#888', marginBottom: '2px' }}>
+            D
+          </div>
+          <div
+            style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', color: '#fbbf24' }}
+          >
             {d.toFixed(2)}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#888', marginBottom: '2px' }}>J</div>
-          <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', color: '#a78bfa' }}>
+          <div style={{ fontSize: isMobile ? '11px' : '12px', color: '#888', marginBottom: '2px' }}>
+            J
+          </div>
+          <div
+            style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', color: '#a78bfa' }}
+          >
             {j.toFixed(2)}
           </div>
         </div>
       </div>
 
-      <div style={{
-        padding: isMobile ? '3px 10px' : '4px 12px',
-        borderRadius: '4px',
-        background: status.color,
-        color: '#fff',
-        fontSize: isMobile ? '13px' : '14px',
-        fontWeight: 500
-      }}>
+      <div
+        style={{
+          padding: isMobile ? '3px 10px' : '4px 12px',
+          borderRadius: '4px',
+          background: status.color,
+          color: '#fff',
+          fontSize: isMobile ? '13px' : '14px',
+          fontWeight: 500,
+        }}
+      >
         {status.text}
       </div>
 
       {crossStatus && (
-        <div style={{
-          padding: isMobile ? '3px 10px' : '4px 12px',
-          borderRadius: '4px',
-          background: crossColor,
-          color: '#fff',
-          fontSize: isMobile ? '13px' : '14px',
-          fontWeight: 500
-        }}>
+        <div
+          style={{
+            padding: isMobile ? '3px 10px' : '4px 12px',
+            borderRadius: '4px',
+            background: crossColor,
+            color: '#fff',
+            fontSize: isMobile ? '13px' : '14px',
+            fontWeight: 500,
+          }}
+        >
           {crossStatus}
         </div>
       )}

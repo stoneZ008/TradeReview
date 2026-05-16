@@ -49,6 +49,6 @@ export const useStockData = () => {
     backtestResult,
     getStockData,
     runBacktestAnalysis,
-    clearData
+    clearData,
   };
 };

@@ -71,7 +71,7 @@ export function AuthProvider({ children }) {
     refreshProfile,
     hasRole,
     isTrial,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

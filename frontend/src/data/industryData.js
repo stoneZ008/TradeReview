@@ -17,23 +17,23 @@ const industryData = [
             name: '天孚通信',
             role: '光模块龙头',
             feature: '800G/1.6T高速光模块量产能力，绑定头部客户',
-            desc: '光模块产品研发制造'
+            desc: '光模块产品研发制造',
           },
           {
             code: '300502',
             name: '新易盛',
             role: '800G光模块',
             feature: '800G硅光模块领先，海外大客户突破',
-            desc: '高速光模块供应商'
+            desc: '高速光模块供应商',
           },
           {
             code: '603083',
             name: '剑桥科技',
             role: '光模块',
             feature: '5G前传光模块，海外业务占比高',
-            desc: '光通信产品'
-          }
-        ]
+            desc: '光通信产品',
+          },
+        ],
       },
       {
         id: 'cpo',
@@ -44,16 +44,16 @@ const industryData = [
             name: '光迅科技',
             role: 'CPO龙头',
             feature: '国内光器件龙头，CPO方案储备充分',
-            desc: '光通信器件'
+            desc: '光通信器件',
           },
           {
             code: '300570',
             name: '太辰光',
             role: 'CPO',
             feature: '光无源器件，CPO封装布局',
-            desc: '光无源器件'
-          }
-        ]
+            desc: '光无源器件',
+          },
+        ],
       },
       {
         id: 'silicon-photonics',
@@ -64,11 +64,11 @@ const industryData = [
             name: '源杰科技',
             role: '硅光芯片',
             feature: '硅光芯片国产替代，25G/50G产品量产',
-            desc: '光芯片'
-          }
-        ]
-      }
-    ]
+            desc: '光芯片',
+          },
+        ],
+      },
+    ],
   },
   {
     id: 'chip',
@@ -84,16 +84,16 @@ const industryData = [
             name: '海光信息',
             role: '国产GPU龙头',
             feature: '深海系列GPU，国产AI算力核心',
-            desc: '国产GPU研发'
+            desc: '国产GPU研发',
           },
           {
             code: '688256',
             name: '寒武纪',
             role: 'AI芯片',
             feature: '思元系列AI芯片，大模型训练推理',
-            desc: 'AI芯片设计'
-          }
-        ]
+            desc: 'AI芯片设计',
+          },
+        ],
       },
       {
         id: 'storage',
@@ -104,11 +104,11 @@ const industryData = [
             name: '紫光国微',
             role: '存储芯片',
             feature: '国产存储芯片龙头，DRAM+NAND布局',
-            desc: '存储芯片设计'
-          }
-        ]
-      }
-    ]
+            desc: '存储芯片设计',
+          },
+        ],
+      },
+    ],
   },
   {
     id: 'server',
@@ -124,18 +124,18 @@ const industryData = [
             name: '浪潮信息',
             role: 'AI服务器龙头',
             feature: '国内AI服务器市占率第一，深度绑定英伟达',
-            desc: '服务器研发制造'
+            desc: '服务器研发制造',
           },
           {
             code: '603019',
             name: '中科曙光',
             role: '算力',
             feature: '国产算力基础设施，海光生态',
-            desc: '高性能计算'
-          }
-        ]
-      }
-    ]
+            desc: '高性能计算',
+          },
+        ],
+      },
+    ],
   },
   {
     id: 'new-energy',
@@ -151,12 +151,12 @@ const industryData = [
             name: '宁德时代',
             role: '动力电池龙头',
             feature: '全球动力电池市占率第一',
-            desc: '动力电池研发制造'
-          }
-        ]
-      }
-    ]
-  }
+            desc: '动力电池研发制造',
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 export default industryData;

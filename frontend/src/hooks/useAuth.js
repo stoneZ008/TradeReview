@@ -15,7 +15,7 @@ export const useHasRole = (roles) => {
   if (typeof roles === 'string') {
     return user.roles.includes(roles);
   }
-  return roles.some(role => user.roles.includes(role));
+  return roles.some((role) => user.roles.includes(role));
 };
 
 export const useHasPermission = (permission) => {

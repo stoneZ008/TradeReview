@@ -1,9 +1,11 @@
 export default function SignalPanel({ stockData }) {
   if (!stockData?.data) return null;
 
-  const signals = stockData.data.filter(d => d.signal !== 0).sort((a, b) => {
-    return new Date(b.date) - new Date(a.date);
-  });
+  const signals = stockData.data
+    .filter((d) => d.signal !== 0)
+    .sort((a, b) => {
+      return new Date(b.date) - new Date(a.date);
+    });
 
   if (signals.length === 0) {
     return (
@@ -25,7 +27,9 @@ export default function SignalPanel({ stockData }) {
             <span className="signal-price">¥{s.close}</span>
           </div>
           <div className="signal-score">
-            {s.signal === 1 ? '强度: ' + (s.buy_score * 100).toFixed(0) + '%' : '强度: ' + (s.sell_score * 100).toFixed(0) + '%'}
+            {s.signal === 1
+              ? '强度: ' + (s.buy_score * 100).toFixed(0) + '%'
+              : '强度: ' + (s.sell_score * 100).toFixed(0) + '%'}
           </div>
         </div>
       ))}

@@ -7,8 +7,8 @@ function isUsStock(code) {
 export default function Watchlist({ watchlist, onSelect, onRemove }) {
   const [activeTab, setActiveTab] = useState('a');
 
-  const aStockList = watchlist.filter(s => !isUsStock(s.code));
-  const usStockList = watchlist.filter(s => isUsStock(s.code));
+  const aStockList = watchlist.filter((s) => !isUsStock(s.code));
+  const usStockList = watchlist.filter((s) => isUsStock(s.code));
   const displayList = activeTab === 'a' ? aStockList : usStockList;
 
   return (

@@ -183,7 +183,8 @@ body {
   flex-direction: column;
 }
 
-.btn-watchlist, .btn-watchlist-add {
+.btn-watchlist,
+.btn-watchlist-add {
   padding: 8px 16px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -195,7 +196,8 @@ body {
   color: var(--text-primary);
 }
 
-.btn-watchlist:hover, .btn-watchlist-add:hover {
+.btn-watchlist:hover,
+.btn-watchlist-add:hover {
   background: var(--border);
 }
 
@@ -215,7 +217,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   z-index: 1000;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .watchlist-item {
@@ -289,7 +291,8 @@ body {
   color: var(--text-secondary);
 }
 
-.input, .select {
+.input,
+.select {
   padding: 8px 12px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
@@ -299,7 +302,8 @@ body {
   outline: none;
 }
 
-.input:focus, .select:focus {
+.input:focus,
+.select:focus {
   border-color: var(--accent);
 }
 
@@ -499,7 +503,7 @@ body {
   font-size: 12px;
   padding: 2px 8px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .metrics-grid {
@@ -551,7 +555,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .empty-state {
@@ -1199,7 +1205,6 @@ body {
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
-;
   transition: all 0.2s;
 }
 
@@ -1733,18 +1738,18 @@ body {
     flex-wrap: wrap;
     gap: 8px;
   }
-  
+
   .logo-text {
     font-size: 16px;
   }
-  
+
   .controls {
     flex-wrap: wrap;
     gap: 8px;
     width: 100%;
     order: 3;
   }
-  
+
   .controls input,
   .controls button {
     min-height: 40px;
@@ -1755,7 +1760,7 @@ body {
   .watchlist-sidebar {
     display: none;
   }
-  
+
   .sidebar {
     display: none;
   }
@@ -1764,7 +1769,7 @@ body {
   .main-content {
     flex: 1;
   }
-  
+
   .chart-section {
     width: 100%;
     padding: 8px;
@@ -1774,7 +1779,7 @@ body {
   .chart-tabs {
     gap: 4px;
   }
-  
+
   .chart-tabs .tab {
     min-height: 40px;
     padding: 8px 12px;
@@ -1786,12 +1791,12 @@ body {
     gap: 12px;
     padding: 4px 0;
   }
-  
+
   .legend-item {
     font-size: 12px;
     gap: 4px;
   }
-  
+
   .legend-dot {
     width: 8px;
     height: 8px;
@@ -1808,7 +1813,7 @@ body {
     min-height: 40px;
     min-width: 40px;
   }
-  
+
   .user-dropdown {
     right: 0;
     min-width: 140px;
@@ -1818,11 +1823,11 @@ body {
   .dao-sidebar {
     display: none;
   }
-  
+
   .dao-main {
     margin-left: 0;
   }
-  
+
   .stock-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
@@ -1835,19 +1840,19 @@ body {
   .watchlist-sidebar {
     width: 180px;
   }
-  
+
   .sidebar {
     width: 280px;
   }
-  
+
   .controls {
     gap: 8px;
   }
-  
+
   .controls input {
     padding: 6px 10px;
   }
-  
+
   .stock-grid {
     grid-template-columns: repeat(3, 1fr);
   }

@@ -16,21 +16,21 @@ export function setAuthToken(token) {
 
 function getAuthHeaders() {
   const token = getAuthToken();
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function fetchWithAuth(url, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...getAuthHeaders(),
-    ...options.headers
+    ...options.headers,
   };
   const res = await fetch(url, { ...options, headers });
-  
+
   if (res.status === 401 || res.status === 403) {
     const resClone = res.clone();
     const data = await resClone.json().catch(() => ({}));
-    
+
     if (!getAuthToken()) {
       // 未登录状态，直接跳转到登录页（只提示一次）
       alert('请先登录后再使用此功能');
@@ -45,7 +45,7 @@ export async function fetchWithAuth(url, options = {}) {
       throw new Error(data.error);
     }
   }
-  
+
   return res;
 }
 
@@ -53,7 +53,7 @@ export async function register(username, email, password) {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email, password })
+    body: JSON.stringify({ username, email, password }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -64,7 +64,7 @@ export async function login(username, password) {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify({ username, password }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -81,7 +81,7 @@ export async function getProfile() {
 export async function updateProfile(username, email) {
   const res = await fetchWithAuth(`${API_BASE}/auth/profile`, {
     method: 'PUT',
-    body: JSON.stringify({ username, email })
+    body: JSON.stringify({ username, email }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -91,7 +91,7 @@ export async function updateProfile(username, email) {
 export async function changePassword(oldPassword, newPassword) {
   const res = await fetchWithAuth(`${API_BASE}/auth/change-password`, {
     method: 'POST',
-    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -119,7 +119,7 @@ export async function adminGetUsers() {
 export async function adminAssignSubscription(userId, planName, isYearly = false) {
   const res = await fetchWithAuth(`${API_BASE}/admin/users/${userId}/subscription`, {
     method: 'PUT',
-    body: JSON.stringify({ plan_name: planName, is_yearly: isYearly })
+    body: JSON.stringify({ plan_name: planName, is_yearly: isYearly }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -129,7 +129,7 @@ export async function adminAssignSubscription(userId, planName, isYearly = false
 export async function adminAssignRole(userId, roleName) {
   const res = await fetchWithAuth(`${API_BASE}/admin/users/${userId}/roles`, {
     method: 'PUT',
-    body: JSON.stringify({ role_name: roleName })
+    body: JSON.stringify({ role_name: roleName }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -139,7 +139,7 @@ export async function adminAssignRole(userId, roleName) {
 export async function adminCreateUser(username, email, password) {
   const res = await fetchWithAuth(`${API_BASE}/admin/users`, {
     method: 'POST',
-    body: JSON.stringify({ username, email, password })
+    body: JSON.stringify({ username, email, password }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -154,14 +154,16 @@ export async function adminGetAuditLogs() {
 
 export async function adminCleanLoginLogs() {
   const res = await fetchWithAuth(`${API_BASE}/admin/audit-logs/clean-login`, {
-    method: 'DELETE'
+    method: 'DELETE',
   });
   const data = await res.json();
   return data;
 }
 
 export async function fetchStockData(symbol, startDate, endDate, rsiPeriod = 14) {
-  const res = await fetchWithAuth(`${API_BASE}/stock/${symbol}?start_date=${startDate}&end_date=${endDate}&rsi_period=${rsiPeriod}`);
+  const res = await fetchWithAuth(
+    `${API_BASE}/stock/${symbol}?start_date=${startDate}&end_date=${endDate}&rsi_period=${rsiPeriod}`
+  );
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
@@ -177,12 +179,12 @@ export async function runBacktest(symbol, startDate, endDate, config = {}) {
       commission_rate: 0.001,
       buy_threshold: 0.08,
       sell_threshold: 0.12,
-      ...config
-    }
+      ...config,
+    },
   };
   const res = await fetchWithAuth(`${API_BASE}/backtest`, {
     method: 'POST',
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -198,7 +200,7 @@ export async function loadWatchlist() {
 export async function addToWatchlist(code, name) {
   const res = await fetchWithAuth(`${API_BASE}/watchlist`, {
     method: 'POST',
-    body: JSON.stringify({ code, name })
+    body: JSON.stringify({ code, name }),
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.message);
@@ -207,7 +209,7 @@ export async function addToWatchlist(code, name) {
 
 export async function removeFromWatchlist(code) {
   const res = await fetchWithAuth(`${API_BASE}/watchlist/${code}`, {
-    method: 'DELETE'
+    method: 'DELETE',
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.message);

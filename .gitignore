@@ -215,6 +215,8 @@ dist/
 # Backend runtime
 backend/server.log
 backend/watchlist.json
+backend/users.db
+backend/industries.db
 backend/certs/*.pem
 backend/certs/*.key
 backend/.env

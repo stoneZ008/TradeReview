@@ -14,10 +14,7 @@ export default function SubscriptionPage() {
 
   const loadAll = async () => {
     try {
-      const [planData, actInfo] = await Promise.all([
-        getSubscriptionPlans(),
-        getActivationInfo()
-      ]);
+      const [planData, actInfo] = await Promise.all([getSubscriptionPlans(), getActivationInfo()]);
       setPlans(planData);
       setActivation(actInfo);
     } catch (e) {
@@ -250,8 +247,7 @@ export default function SubscriptionPage() {
             <div className="activation-card">
               <div className="activation-title">📚 加入知识星球开通账号</div>
               <div className="activation-desc">
-                请加入「细水长流」知识星球，
-                加入后联系管理员，由管理员在后台为您开通对应套餐权限。
+                请加入「细水长流」知识星球， 加入后联系管理员，由管理员在后台为您开通对应套餐权限。
               </div>
 
               <div className="activation-steps">
@@ -282,11 +278,13 @@ export default function SubscriptionPage() {
                 </div>
               )}
 
-              <div style={{
-                marginTop: '16px',
-                fontSize: '13px',
-                color: 'var(--text-secondary)'
-              }}>
+              <div
+                style={{
+                  marginTop: '16px',
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)',
+                }}
+              >
                 {activation?.contact}
               </div>
             </div>
