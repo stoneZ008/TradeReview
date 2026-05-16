@@ -41,8 +41,25 @@ def test_calculate_rsi():
         'close': np.random.rand(30) * 100 + 100
     })
     result = calculate_rsi(data)
-    assert 'rsi' in result.columns
-    assert all(0 <= r <= 100 for r in result['rsi'].dropna())
+    assert all(0 <= r <= 100 for r in result.dropna())
+
+def test_calculate_rsi_different_periods():
+    """测试不同周期的RSI计算"""
+    data = pd.DataFrame({
+        'close': np.random.rand(50) * 100 + 100
+    })
+    for period in [6, 9, 14, 20]:
+        result = calculate_rsi(data, period=period)
+        assert all(0 <= r <= 100 for r in result.dropna())
+
+def test_calculate_rsi_all_gains():
+    """测试连续上涨时的RSI边界情况（无除零错误）"""
+    data = pd.DataFrame({
+        'close': [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115]
+    })
+    result = calculate_rsi(data, period=14)
+    assert not pd.isna(result.iloc[-1])
+    assert result.iloc[-1] > 90  # 连续上涨RSI应接近100
 
 
 def test_calculate_kdj():

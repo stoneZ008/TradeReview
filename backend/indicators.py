@@ -9,6 +9,14 @@ def calculate_sma(data, period):
     """计算简单移动平均线"""
     return data.rolling(window=period).mean()
 
+def calculate_rma(data, period):
+    """
+    计算 Wilder's Moving Average (RMA)
+    用于 RSI 等指标的标准平滑算法
+    """
+    alpha = 1.0 / period
+    return data.ewm(alpha=alpha, adjust=False).mean()
+
 def calculate_macd(df, fast=12, slow=26, signal=9):
     """
     计算MACD指标
@@ -47,7 +55,8 @@ def calculate_boll(df, period=20, std_dev=2):
 
 def calculate_rsi(df, period=14):
     """
-    计算RSI相对强弱指标
+    计算RSI相对强弱指标 (Wilder's RSI)
+    使用 Wilder's RMA 进行平滑，符合标准交易平台实现
     返回: Series
     """
     close = df['close']
@@ -55,13 +64,13 @@ def calculate_rsi(df, period=14):
     gain = delta.where(delta > 0, 0)
     loss = (-delta).where(delta < 0, 0)
     
-    avg_gain = calculate_sma(gain, period)
-    avg_loss = calculate_sma(loss, period)
+    avg_gain = calculate_rma(gain, period)
+    avg_loss = calculate_rma(loss, period)
     
-    rs = avg_gain / avg_loss
+    rs = np.where(avg_loss == 0, 100, avg_gain / avg_loss)
     rsi = 100 - (100 / (1 + rs))
     
-    return rsi
+    return pd.Series(rsi, index=df.index)
 
 def calculate_kdj(df, n=9, m1=3, m2=3):
     """
@@ -207,7 +216,7 @@ def detect_candle_patterns(df):
     
     return patterns
 
-def calculate_all_indicators(df):
+def calculate_all_indicators(df, rsi_period=14):
     """
     计算所有技术指标
     """
@@ -227,7 +236,7 @@ def calculate_all_indicators(df):
     result['boll_width'] = boll['bandwidth']
     
     # RSI
-    result['rsi'] = calculate_rsi(df)
+    result['rsi'] = calculate_rsi(df, period=rsi_period)
     
     # KDJ
     kdj = calculate_kdj(df)

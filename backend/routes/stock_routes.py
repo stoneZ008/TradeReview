@@ -27,6 +27,7 @@ def get_stock_data(symbol):
     """获取股票历史数据和技术指标"""
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
+    rsi_period = int(request.args.get('rsi_period', 14))
     
     try:
         df = fetch_stock_data(symbol, start_date, end_date)
@@ -41,7 +42,7 @@ def get_stock_data(symbol):
     stock_info = get_stock_info(symbol)
     stock_name = stock_info['name'] if stock_info else ''
     
-    df_with_indicators = calculate_all_indicators(df)
+    df_with_indicators = calculate_all_indicators(df, rsi_period=rsi_period)
     signals_df = generate_trading_signals(df_with_indicators, {'buy_threshold': 0.08, 'sell_threshold': 0.12})
     
     result_df = df_with_indicators.copy()

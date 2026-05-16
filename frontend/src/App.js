@@ -1,11 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import DaoPage from './components/DaoPage';
 import KlineChart from './components/KlineChart';
 import MACDChart from './components/MACDChart';
 import RSIChart from './components/RSIChart';
+import RSIStatus from './components/RSIStatus';
 import KDJChart from './components/KDJChart';
+import KDJStatus from './components/KDJStatus';
 import EquityChart from './components/EquityChart';
 import Watchlist from './components/Watchlist';
 import SignalPanel from './components/SignalPanel';
@@ -36,8 +38,8 @@ function PrivateRoute({ children }) {
 function HomePage() {
   const { user, logout, isAuthenticated, hasRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [symbol, setSymbol] = useState('600519');
-  const [inputSymbol, setInputSymbol] = useState('600519');
+  const [symbol, setSymbol] = useState('');
+  const [inputSymbol, setInputSymbol] = useState('');
   const [activePage, setActivePage] = useState('shu');
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -66,12 +68,30 @@ function HomePage() {
   const [activeTab, setActiveTab] = useState('signals');
   const [backtestResult, setBacktestResult] = useState(null);
   const [watchlist, setWatchlist] = useState([]);
+  const [rsiPeriod, setRsiPeriod] = useState(14);
+  const userMenuRef = useRef(null);
 
   React.useEffect(() => {
     if (isAuthenticated) {
       handleLoadWatchlist();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
+
+
 
   const handleLoadWatchlist = async () => {
     try {
@@ -122,12 +142,22 @@ function HomePage() {
     }
   };
 
+  const isMobileView = () => window.innerWidth <= 768;
+
+  const trimDataForMobile = (data) => {
+    if (!data?.data || !isMobileView()) return data;
+    if (data.data.length > 40) {
+      return { ...data, data: data.data.slice(-40) };
+    }
+    return data;
+  };
+
   const fetchDataForCode = async (code) => {
     if (!code) return;
     setLoading(true);
     try {
-      const data = await apiFetchStockData(code, startDate, endDate);
-      setStockData(data);
+      const data = await apiFetchStockData(code, startDate, endDate, rsiPeriod);
+      setStockData(trimDataForMobile(data));
     } catch (e) {
       alert(e.message || '获取数据失败，请确保后端服务已启动');
     }
@@ -135,23 +165,29 @@ function HomePage() {
   };
 
   const fetchData = useCallback(async () => {
-    if (!symbol) return;
+    if (!symbol) {
+      alert('请输入股票代码');
+      return;
+    }
     setLoading(true);
     try {
-      const data = await apiFetchStockData(symbol, startDate, endDate);
-      setStockData(data);
+      const data = await apiFetchStockData(symbol, startDate, endDate, rsiPeriod);
+      setStockData(trimDataForMobile(data));
     } catch (e) {
       alert(e.message || '获取数据失败，请确保后端服务已启动');
     }
     setLoading(false);
-  }, [symbol, startDate, endDate]);
+  }, [symbol, startDate, endDate, rsiPeriod]);
 
   const runBacktest = async () => {
     if (!isAuthenticated) {
       alert('请先登录');
       return;
     }
-    if (!symbol) return;
+    if (!symbol) {
+      alert('请先获取股票数据');
+      return;
+    }
     setLoading(true);
     try {
       const data = await apiRunBacktest(symbol, startDate, endDate);
@@ -166,8 +202,22 @@ function HomePage() {
   const renderChart = () => {
     switch (activeChart) {
       case 'macd': return <MACDChart stockData={stockData} symbol={symbol} />;
-      case 'rsi': return <RSIChart stockData={stockData} symbol={symbol} />;
-      case 'kdj': return <KDJChart stockData={stockData} symbol={symbol} />;
+      case 'rsi': return (
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <RSIStatus stockData={stockData} rsiPeriod={rsiPeriod} onRsiPeriodChange={setRsiPeriod} />
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <RSIChart stockData={stockData} symbol={symbol} rsiPeriod={rsiPeriod} />
+          </div>
+        </div>
+      );
+      case 'kdj': return (
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <KDJStatus stockData={stockData} />
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <KDJChart stockData={stockData} symbol={symbol} />
+          </div>
+        </div>
+      );
       case 'backtest': return <EquityChart backtestResult={backtestResult} stockData={stockData} symbol={symbol} />;
       default: return <KlineChart stockData={stockData} symbol={symbol} />;
     }
@@ -272,7 +322,7 @@ function HomePage() {
 
         <div className="user-menu-wrapper">
           {isAuthenticated ? (
-            <div>
+            <div ref={userMenuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="user-menu-btn"

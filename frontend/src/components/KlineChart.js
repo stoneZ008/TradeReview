@@ -74,7 +74,7 @@ export default function KlineChart({ stockData, symbol }) {
   const { topDivergence, bottomDivergence } = detectMACDDivergence(data);
 
   const stockNameWithSymbol = stockData.name ? stockData.name + ' (' + symbol + ')' : symbol;
-  const titleText = stockNameWithSymbol + `    收盘价: ${lastClose.toFixed(2)} (${lastDate})`;
+  const titleText = stockNameWithSymbol;
 
   let signalTag = '';
   let signalColor = '';
@@ -97,17 +97,23 @@ export default function KlineChart({ stockData, symbol }) {
 
   const titleItems = [
     {
+      text: '买卖信号参考',
+      left: 'center',
+      top: 2,
+      textStyle: { color: '#a78bfa', fontSize: 20, fontWeight: 'bold' },
+    },
+    {
       text: titleText,
       left: '10%',
-      top: signalTag ? 3 : 8,
-      textStyle: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+      top: signalTag ? 34 : 36,
+      textStyle: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
     },
   ];
   if (signalTag) {
     titleItems.push({
       text: '{tag|' + signalTag + '}',
       left: '10%',
-      top: 28,
+      top: 58,
       textStyle: {
         rich: {
           tag: {
@@ -167,7 +173,7 @@ export default function KlineChart({ stockData, symbol }) {
     legend: {
       data: ['K线', 'MA5', 'MA10', 'MA20', 'DIF', 'DEA', 'MACD柱'],
       textStyle: { color: '#a0a0a0' },
-      top: signalTag ? 48 : 0,
+      top: signalTag ? 40 : 0,
     },
     grid: [
       { left: '10%', right: '5%', top: signalTag ? '18%' : '12%', height: '40%' },
@@ -323,6 +329,36 @@ export default function KlineChart({ stockData, symbol }) {
         })),
         xAxisIndex: 2,
         yAxisIndex: 2,
+      },
+    ],
+    media: [
+      {
+        query: { maxWidth: 768 },
+        option: {
+          title: [
+            { textStyle: { fontSize: 16 } },
+            { textStyle: { fontSize: 11 } },
+          ],
+          legend: { top: signalTag ? 48 : 8, textStyle: { fontSize: 10 } },
+          grid: [
+            { left: '8%', right: '3%', top: signalTag ? '22%' : '15%', height: '45%' },
+            { left: '8%', right: '3%', top: '64%', height: '14%' },
+            { left: '8%', right: '3%', top: '82%', height: '12%' },
+          ],
+          dataZoom: [
+            { type: 'inside', start: 30, end: 100 },
+            { type: 'slider', height: 24, bottom: 0 },
+          ],
+          series: [
+            { markPoint: { symbolSize: 28, label: { fontSize: 9 } } },
+            { lineStyle: { width: 1 } },
+            { lineStyle: { width: 1 } },
+            { lineStyle: { width: 1 } },
+            {},
+            {},
+            {},
+          ],
+        },
       },
     ],
   };

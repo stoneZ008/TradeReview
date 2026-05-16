@@ -160,8 +160,8 @@ export async function adminCleanLoginLogs() {
   return data;
 }
 
-export async function fetchStockData(symbol, startDate, endDate) {
-  const res = await fetchWithAuth(`${API_BASE}/stock/${symbol}?start_date=${startDate}&end_date=${endDate}`);
+export async function fetchStockData(symbol, startDate, endDate, rsiPeriod = 14) {
+  const res = await fetchWithAuth(`${API_BASE}/stock/${symbol}?start_date=${startDate}&end_date=${endDate}&rsi_period=${rsiPeriod}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;

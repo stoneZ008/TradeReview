@@ -1721,3 +1721,134 @@ body {
 .user-dropdown-item.text-danger {
   color: var(--up-color);
 }
+
+/* ========================================
+   移动端响应式适配 (核心版)
+   ======================================== */
+
+@media (max-width: 768px) {
+  /* 头部适配 */
+  .header {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .logo-text {
+    font-size: 16px;
+  }
+  
+  .controls {
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    order: 3;
+  }
+  
+  .controls input,
+  .controls button {
+    min-height: 40px;
+    font-size: 13px;
+  }
+
+  /* 侧边栏隐藏 - 移动端简化布局 */
+  .watchlist-sidebar {
+    display: none;
+  }
+  
+  .sidebar {
+    display: none;
+  }
+
+  /* 主内容占满宽度 */
+  .main-content {
+    flex: 1;
+  }
+  
+  .chart-section {
+    width: 100%;
+    padding: 8px;
+  }
+
+  /* 图表标签增大触摸区域 */
+  .chart-tabs {
+    gap: 4px;
+  }
+  
+  .chart-tabs .tab {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  /* 图例缩小 */
+  .chart-legend {
+    gap: 12px;
+    padding: 4px 0;
+  }
+  
+  .legend-item {
+    font-size: 12px;
+    gap: 4px;
+  }
+  
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  /* 图表容器高度调整 */
+  .chart-container {
+    flex: 1;
+    min-height: 400px;
+  }
+
+  /* 用户菜单 */
+  .user-menu-btn {
+    min-height: 40px;
+    min-width: 40px;
+  }
+  
+  .user-dropdown {
+    right: 0;
+    min-width: 140px;
+  }
+
+  /* Dao 页面适配 */
+  .dao-sidebar {
+    display: none;
+  }
+  
+  .dao-main {
+    margin-left: 0;
+  }
+  
+  .stock-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 8px;
+  }
+}
+
+/* 平板端适配 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .watchlist-sidebar {
+    width: 180px;
+  }
+  
+  .sidebar {
+    width: 280px;
+  }
+  
+  .controls {
+    gap: 8px;
+  }
+  
+  .controls input {
+    padding: 6px 10px;
+  }
+  
+  .stock-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
