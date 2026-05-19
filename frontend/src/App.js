@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import HotspotPage from './components/HotspotPage';
 import DaoPage from './components/DaoPage';
 import KlineChart from './components/KlineChart';
 import MACDChart from './components/MACDChart';
@@ -262,6 +263,12 @@ function HomePage() {
             </button>
           )}
           <button
+            className={`nav-tab ${activePage === 'hotspot' ? 'active' : ''}`}
+            onClick={() => setActivePage('hotspot')}
+          >
+            热点洞察
+          </button>
+          <button
             className={`nav-tab ${activePage === 'shu' ? 'active' : ''}`}
             onClick={() => setActivePage('shu')}
           >
@@ -376,6 +383,8 @@ function HomePage() {
 
       {activePage === 'dao' ? (
         <DaoPage onStockSelect={handleStockSelectFromDao} />
+      ) : activePage === 'hotspot' ? (
+        <HotspotPage onStockSelect={handleStockSelectFromDao} />
       ) : (
         <div className="main-content">
           <Watchlist watchlist={watchlist} onSelect={selectWatchStock} onRemove={handleRemoveFromWatchlist} />

@@ -227,3 +227,56 @@ export async function getActivationInfo() {
   const data = await res.json();
   return data;
 }
+
+export async function fetchHotspotSectors(type = 'concept', limit = 50) {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/sectors?type=${type}&limit=${limit}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data || [];
+}
+
+export async function fetchSectorDetail(sectorName, sectorType = 'concept') {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/sector/${encodeURIComponent(sectorName)}?type=${sectorType}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+}
+
+export async function fetchHotspotStocks(limit = 50) {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/stocks?limit=${limit}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data || [];
+}
+
+export async function fetchStockAttribution(code, name = '') {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/attribution/${code}?name=${encodeURIComponent(name)}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+}
+
+export async function fetchFundFlow() {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/fund-flow`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data || [];
+}
+
+export async function fetchMarketOverview() {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/market-overview`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+}
+
+export async function refreshHotspotCache(cacheType = null) {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: cacheType })
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+}
