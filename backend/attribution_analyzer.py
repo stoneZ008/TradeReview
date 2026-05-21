@@ -1,12 +1,12 @@
 from datetime import datetime
 import numpy as np
 from hotspot_fetcher import (
-    get_mock_hot_sectors,
     get_mock_sector_stocks,
     get_sector_stocks,
     get_stock_concepts,
-    get_fund_flow,
-    get_hot_sectors
+    get_industry_sectors,
+    get_market_metrics,
+    get_mock_market_metrics
 )
 
 
@@ -31,19 +31,9 @@ def analyze_stock_attribution(code, name=''):
     except Exception:
         concepts = []
 
-    try:
-        fund_flow_data = get_fund_flow() or []
-        stock_fund = next((f for f in fund_flow_data if f.get('code') == str(code)), None)
-    except Exception:
-        stock_fund = None
-
-    price = _safe_float(_safe_get(stock_fund, 'price', 0))
-    change_pct = _safe_float(_safe_get(stock_fund, 'change_pct', 0))
-    main_net_inflow = _safe_float(_safe_get(stock_fund, 'main_net_inflow', 0))
-    super_large_net_inflow = _safe_float(_safe_get(stock_fund, 'super_large_net_inflow', 0))
-    large_net_inflow = _safe_float(_safe_get(stock_fund, 'large_net_inflow', 0))
-    medium_net_inflow = _safe_float(_safe_get(stock_fund, 'medium_net_inflow', 0))
-    small_net_inflow = _safe_float(_safe_get(stock_fund, 'small_net_inflow', 0))
+    price = 0.0
+    change_pct = 0.0
+    main_net_inflow = 0.0
 
     technical_signals = _detect_technical_signals(change_pct, main_net_inflow, price)
 
@@ -57,13 +47,6 @@ def analyze_stock_attribution(code, name=''):
         'attribution': {
             'industry': {'name': industry_concept, 'change_pct': 0, 'contribution': 0.4},
             'concepts': [{'name': c, 'change_pct': 0, 'contribution': 1.0 / len(concepts) if concepts else 0} for c in concepts[:5]],
-        },
-        'fund_flow': {
-            'main_net_inflow': int(main_net_inflow),
-            'super_large_net_inflow': int(super_large_net_inflow),
-            'large_net_inflow': int(large_net_inflow),
-            'medium_net_inflow': int(medium_net_inflow),
-            'small_net_inflow': int(small_net_inflow),
         },
         'technical_signals': technical_signals,
         'analysis_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -116,7 +99,7 @@ def _detect_technical_signals(change_pct, fund_inflow, price):
     return signals[:4]
 
 
-def analyze_sector_attribution(sector_name, sector_type='concept'):
+def analyze_sector_attribution(sector_name, sector_type='industry'):
     """分析板块归因"""
     try:
         stocks = get_sector_stocks(sector_name, sector_type) or []
@@ -236,15 +219,131 @@ def _calculate_driving_factors(stocks, avg_change):
     return factors
 
 
+def _evaluate_bull_market(metrics):
+    """基于市场指标进行牛市多因子判定"""
+    reasons = []
+    score = 0
+
+    sh = (metrics or {}).get('sh_index') or {}
+    hs = (metrics or {}).get('hs300') or {}
+    up_ratio = _safe_float((metrics or {}).get('up_ratio', 0))
+
+    sh_close = _safe_float(sh.get('close'))
+    sh_ma200 = _safe_float(sh.get('ma200'))
+    if sh_close and sh_ma200:
+        hit = sh_close > sh_ma200
+        if hit:
+            score += 25
+        reasons.append({
+            'label': '上证指数 > 200日均线',
+            'hit': bool(hit),
+            'detail': f"{sh_close:.2f} vs {sh_ma200:.2f}",
+            'weight': 25
+        })
+
+    if 'ma200_slope_up' in sh:
+        hit = bool(sh.get('ma200_slope_up'))
+        if hit:
+            score += 15
+        reasons.append({
+            'label': '上证200日均线趋势向上',
+            'hit': hit,
+            'detail': '近 20 日均线抬升' if hit else '近 20 日均线走平或下行',
+            'weight': 15
+        })
+
+    drawdown = sh.get('drawdown_from_high')
+    if drawdown is not None:
+        d = _safe_float(drawdown)
+        hit = d < 0.15
+        if hit:
+            score += 20
+        reasons.append({
+            'label': '距 52 周高点回撤 < 15%',
+            'hit': hit,
+            'detail': f"当前回撤 {d * 100:.1f}%",
+            'weight': 20
+        })
+
+    ret_60d = sh.get('ret_60d')
+    if ret_60d is not None:
+        r = _safe_float(ret_60d)
+        hit = r > 0.10
+        if hit:
+            score += 15
+        reasons.append({
+            'label': '上证近 60 日涨幅 > 10%',
+            'hit': hit,
+            'detail': f"{r * 100:+.1f}%",
+            'weight': 15
+        })
+
+    hs_close = _safe_float(hs.get('close'))
+    hs_ma200 = _safe_float(hs.get('ma200'))
+    if hs_close and hs_ma200:
+        hit = hs_close > hs_ma200
+        if hit:
+            score += 15
+        reasons.append({
+            'label': '沪深300 > 200日均线',
+            'hit': bool(hit),
+            'detail': f"{hs_close:.2f} vs {hs_ma200:.2f}",
+            'weight': 15
+        })
+
+    if up_ratio > 0:
+        hit = up_ratio > 0.6
+        if hit:
+            score += 10
+        reasons.append({
+            'label': '全市场上涨家数占比 > 60%',
+            'hit': hit,
+            'detail': f"{up_ratio * 100:.1f}%",
+            'weight': 10
+        })
+
+    is_bull = score >= 60
+    hit_labels = [r['label'] for r in reasons if r['hit']][:3]
+    if is_bull:
+        if hit_labels:
+            summary = '满足 ' + '、'.join(hit_labels) + ' 等条件，符合牛市特征'
+        else:
+            summary = '多项指标向好，符合牛市特征'
+    else:
+        miss_labels = [r['label'] for r in reasons if not r['hit']][:3]
+        if miss_labels:
+            summary = '未达 ' + '、'.join(miss_labels) + '，暂不符合牛市标准'
+        else:
+            summary = '当前指标尚不支持牛市判定'
+
+    return {
+        'is_bull_market': is_bull,
+        'bull_market_score': score,
+        'bull_market_reasons': reasons,
+        'bull_market_summary': summary,
+    }
+
+
 def get_market_overview():
     """获取市场概览"""
     try:
-        sectors = get_hot_sectors() or []
+        sectors = get_industry_sectors() or []
+
+        try:
+            metrics = get_market_metrics() or {}
+        except Exception as e:
+            print(f"市场指标获取异常: {e}")
+            metrics = get_mock_market_metrics()
 
         if not sectors or (len(sectors) > 0 and sectors[0].get('is_mock', True)):
+            mock_metrics = metrics if metrics else get_mock_market_metrics()
+            bull = _evaluate_bull_market(mock_metrics)
             return {
                 'market_status': '强势',
-                'hot_topic': 'AI大模型、半导体国产化',
+                'hot_topic': '银行、证券、半导体',
+                'total_turnover': mock_metrics.get('total_turnover_yi', 0),
+                'total_turnover_text': mock_metrics.get('total_turnover_text', '0亿'),
+                **bull,
             }
 
         up_sectors = sum(1 for s in sectors if _safe_float(s.get('change_pct', 0)) > 0)
@@ -257,13 +356,24 @@ def get_market_overview():
         else:
             market_status = '弱势'
 
+        bull = _evaluate_bull_market(metrics)
+
         return {
             'market_status': market_status,
             'hot_topic': '、'.join(hot_topic_names),
+            'total_turnover': metrics.get('total_turnover_yi', 0),
+            'total_turnover_text': metrics.get('total_turnover_text', '0亿'),
+            **bull,
         }
     except Exception as e:
         print(f"市场概览获取异常: {e}")
+        mock_metrics = get_mock_market_metrics()
+        bull = _evaluate_bull_market(mock_metrics)
         return {
             'market_status': '震荡',
             'hot_topic': '市场波动',
+            'total_turnover': mock_metrics.get('total_turnover_yi', 0),
+            'total_turnover_text': mock_metrics.get('total_turnover_text', '0亿'),
+            **bull,
         }
+

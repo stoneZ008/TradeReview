@@ -120,54 +120,6 @@ def get_trading_day():
 
 
 @safe_akshare_call(default_return=[])
-def _fetch_ths_concepts():
-    """获取同花顺概念板块实时数据（使用资金流向接口）"""
-    if ak is None:
-        return []
-
-    concepts_df = ak.stock_fund_flow_concept(symbol='即时')
-    if concepts_df is None or len(concepts_df) == 0:
-        return []
-
-    sectors = []
-    trading_day = get_trading_day()
-
-    for idx, row in concepts_df.iterrows():
-        try:
-            name = str(row.get('行业', ''))
-            change_pct = _safe_float(row.get('行业-涨跌幅', 0))
-            fund_net_inflow = _parse_fund_flow(str(row.get('净额', '0')) + '亿')
-            stock_count = int(_safe_float(row.get('公司家数', 0)))
-            lead_stock = str(row.get('领涨股', ''))
-            lead_stock_pct = _safe_float(row.get('领涨股-涨跌幅', 0))
-
-            sectors.append({
-                'name': name,
-                'change_pct': round(change_pct, 2),
-                'lead_stock': lead_stock,
-                'lead_stock_pct': round(lead_stock_pct, 2),
-                'stock_count': stock_count,
-                'up_count': 0,
-                'down_count': 0,
-                'fund_net_inflow': int(fund_net_inflow),
-                'rank': idx + 1,
-                'trading_day': trading_day,
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'is_mock': False,
-                'source': 'ths'
-            })
-        except Exception as e:
-            print(f"解析概念数据失败: {e}")
-            continue
-
-    sectors.sort(key=lambda x: x['change_pct'], reverse=True)
-    for i, s in enumerate(sectors):
-        s['rank'] = i + 1
-
-    return sectors
-
-
-@safe_akshare_call(default_return=[])
 def _fetch_sector_stocks_em(sector_name, is_concept=True):
     """获取板块成分股 - 优先东方财富接口，失败则使用资金流向数据筛选"""
     if ak is None:
@@ -288,33 +240,6 @@ def _fetch_sector_stocks_from_fund_flow(sector_name):
         return []
 
 
-@lru_cache(maxsize=1)
-def get_hot_sectors(limit=50):
-    """获取热点板块"""
-    cache_key = 'hot_sectors'
-    if _is_cache_valid(cache_key):
-        with _cache_lock:
-            return _cached_data.get(cache_key, [])
-
-    try:
-        print("正在获取真实同花顺概念板块数据...")
-        sectors = _fetch_ths_concepts()
-        if sectors:
-            with _cache_lock:
-                _cached_data[cache_key] = sectors[:limit]
-                _last_fetch_time[cache_key] = time.time()
-            return sectors[:limit]
-    except Exception as e:
-        print(f"获取真实概念板块数据失败: {e}")
-
-    print("使用模拟数据")
-    sectors = get_mock_hot_sectors()
-    with _cache_lock:
-        _cached_data[cache_key] = sectors
-        _last_fetch_time[cache_key] = time.time()
-    return sectors[:limit]
-
-
 @safe_akshare_call(default_return=[])
 def _fetch_ths_industries():
     """获取同花顺行业板块实时数据"""
@@ -390,50 +315,7 @@ def get_industry_sectors(limit=50):
     return sectors[:limit]
 
 
-@safe_akshare_call(default_return=[])
-def _fetch_hot_stocks_cxg(limit=50):
-    """获取同花顺热门个股（使用资金流向接口）"""
-    if ak is None:
-        return []
-
-    df = ak.stock_fund_flow_individual(symbol='即时')
-    if df is None or len(df) == 0:
-        return []
-
-    trading_day = get_trading_day()
-    stocks = []
-
-    for idx, row in df.iterrows():
-        if idx >= limit:
-            break
-        try:
-            code = str(row.get('股票代码', ''))
-            name = str(row.get('股票简称', ''))
-            change_pct = _parse_float(str(row.get('涨跌幅', 0)).replace('%', ''))
-            price = _parse_float(row.get('最新价', 0))
-            volume = _parse_float(row.get('换手率', 0))
-
-            stocks.append({
-                'code': code,
-                'name': name,
-                'change_pct': round(change_pct, 2),
-                'price': round(price, 2),
-                'volume': int(volume),
-                'rank': idx + 1,
-                'rank_change': np.random.randint(-5, 10),
-                'trading_day': trading_day,
-                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'is_mock': False,
-                'source': 'ths'
-            })
-        except Exception as e:
-            print(f"解析热门个股数据失败: {e}")
-            continue
-
-    return stocks
-
-
-def get_sector_stocks(sector_name, sector_type='concept'):
+def get_sector_stocks(sector_name, sector_type='industry'):
     """获取板块成分股"""
     cache_key = f'sector_{sector_name}_{sector_type}'
     if _is_cache_valid(cache_key):
@@ -458,84 +340,6 @@ def get_sector_stocks(sector_name, sector_type='concept'):
         _cached_data[cache_key] = stocks
         _last_fetch_time[cache_key] = time.time()
     return stocks
-
-
-@lru_cache(maxsize=1)
-def get_hot_stocks(limit=50):
-    """获取热门个股"""
-    cache_key = 'hot_stocks'
-    if _is_cache_valid(cache_key):
-        with _cache_lock:
-            return _cached_data.get(cache_key, [])
-
-    try:
-        print("正在获取真实同花顺热门个股数据...")
-        stocks = _fetch_hot_stocks_cxg(limit=limit)
-        if stocks:
-            with _cache_lock:
-                _cached_data[cache_key] = stocks
-                _last_fetch_time[cache_key] = time.time()
-            return stocks
-    except Exception as e:
-        print(f"获取真实热门个股数据失败: {e}")
-
-    print("使用模拟数据")
-    stocks = get_mock_hot_stocks()
-    with _cache_lock:
-        _cached_data[cache_key] = stocks
-        _last_fetch_time[cache_key] = time.time()
-    return stocks[:limit]
-
-
-@lru_cache(maxsize=1)
-def get_fund_flow():
-    """获取资金流向"""
-    cache_key = 'fund_flow'
-    if _is_cache_valid(cache_key):
-        with _cache_lock:
-            return _cached_data.get(cache_key, [])
-
-    try:
-        print("正在获取真实同花顺资金流向数据...")
-        fund_flows = _fetch_fund_flow_ths(limit=50)
-        if fund_flows:
-            with _cache_lock:
-                _cached_data[cache_key] = fund_flows
-                _last_fetch_time[cache_key] = time.time()
-            return fund_flows
-    except Exception as e:
-        print(f"获取真实资金流向数据失败: {e}")
-
-    print("使用模拟数据")
-    fund_flows = get_mock_fund_flow()
-    with _cache_lock:
-        _cached_data[cache_key] = fund_flows
-        _last_fetch_time[cache_key] = time.time()
-    return fund_flows
-
-
-@lru_cache(maxsize=1)
-def get_fund_flow():
-    """获取资金流向"""
-    cache_key = 'fund_flow'
-    if _is_cache_valid(cache_key):
-        return _cached_data[cache_key]
-
-    try:
-        print("正在获取真实同花顺资金流向数据...")
-        fund_flows = _fetch_fund_flow_ths(limit=50)
-        if fund_flows:
-            _cached_data[cache_key] = fund_flows
-            _last_fetch_time[cache_key] = time.time()
-            return fund_flows
-    except Exception as e:
-        print(f"获取真实资金流向数据失败: {e}")
-
-    print("使用模拟数据")
-    fund_flows = get_mock_fund_flow()
-    _cached_data[cache_key] = fund_flows
-    _last_fetch_time[cache_key] = time.time()
-    return fund_flows
 
 
 def _preload_concept_stocks_cache():
@@ -609,11 +413,190 @@ def clear_cache(cache_key=None):
             _concept_cache_time = 0
             _concept_stocks_cache.clear()
 
-    get_hot_sectors.cache_clear()
     get_industry_sectors.cache_clear()
-    get_hot_stocks.cache_clear()
-    get_fund_flow.cache_clear()
+    get_market_metrics.cache_clear()
     print(f"[缓存] 已清除: {cache_key or '全部'}")
+
+
+def _format_turnover_yi(turnover_yi):
+    """格式化成交金额（输入单位：亿元）"""
+    try:
+        v = float(turnover_yi)
+    except (TypeError, ValueError):
+        return '0亿'
+    if v >= 10000:
+        return f"{v / 10000:.2f}万亿"
+    return f"{v:.0f}亿"
+
+
+@safe_akshare_call(default_return=None)
+def _fetch_market_activity():
+    """获取市场活跃度（成交额、上涨家数等）"""
+    if ak is None:
+        return None
+    df = ak.stock_market_activity_legu()
+    if df is None or len(df) == 0:
+        return None
+
+    info = {}
+    for _, row in df.iterrows():
+        item = str(row.get('item', '')).strip()
+        value = row.get('value', None)
+        info[item] = value
+
+    total_turnover_yi = 0.0
+    raw_turnover = info.get('总成交额') or info.get('成交额') or info.get('沪深成交额')
+    if raw_turnover is not None:
+        try:
+            s = str(raw_turnover)
+            if '万亿' in s:
+                total_turnover_yi = _safe_float(s) * 10000
+            elif '亿' in s:
+                total_turnover_yi = _safe_float(s)
+            else:
+                total_turnover_yi = _safe_float(s) / 1e8
+        except Exception:
+            total_turnover_yi = 0.0
+
+    up_count = int(_safe_float(info.get('上涨'), 0))
+    down_count = int(_safe_float(info.get('下跌'), 0))
+    flat_count = int(_safe_float(info.get('平盘'), 0))
+    total = up_count + down_count + flat_count
+    up_ratio = (up_count / total) if total > 0 else 0.0
+
+    return {
+        'total_turnover_yi': total_turnover_yi,
+        'up_count': up_count,
+        'down_count': down_count,
+        'up_ratio': round(up_ratio, 4),
+    }
+
+
+@safe_akshare_call(default_return=0.0)
+def _fetch_total_turnover_fallback():
+    """fallback：累加全A现价成交额（单位：亿元）"""
+    if ak is None:
+        return 0.0
+    df = ak.stock_zh_a_spot_em()
+    if df is None or len(df) == 0:
+        return 0.0
+    if '成交额' not in df.columns:
+        return 0.0
+    total = df['成交额'].apply(_safe_float).sum()
+    return round(total / 1e8, 2)
+
+
+@safe_akshare_call(default_return=None)
+def _fetch_index_history(symbol):
+    """获取指数历史日K（取近 ~260 个交易日）"""
+    if ak is None:
+        return None
+    df = ak.stock_zh_index_daily_em(symbol=symbol)
+    if df is None or len(df) == 0:
+        return None
+    return df.tail(260).reset_index(drop=True)
+
+
+def _index_metrics(df):
+    """从指数日K计算关键指标"""
+    if df is None or len(df) == 0:
+        return None
+    try:
+        closes = df['close'].apply(_safe_float).tolist()
+        highs = df['high'].apply(_safe_float).tolist() if 'high' in df.columns else closes
+        if len(closes) < 60:
+            return None
+        close = closes[-1]
+
+        if len(closes) >= 200:
+            ma200 = sum(closes[-200:]) / 200.0
+            ma200_prev = sum(closes[-220:-20]) / 200.0 if len(closes) >= 220 else ma200
+        else:
+            ma200 = sum(closes) / len(closes)
+            ma200_prev = ma200
+
+        high52w = max(highs[-min(252, len(highs)):])
+        ret_60d = (close / closes[-60] - 1.0) if closes[-60] else 0.0
+        drawdown_from_high = (high52w - close) / high52w if high52w else 0.0
+
+        return {
+            'close': round(close, 2),
+            'ma200': round(ma200, 2),
+            'ma200_slope_up': ma200 > ma200_prev,
+            'high52w': round(high52w, 2),
+            'drawdown_from_high': round(drawdown_from_high, 4),
+            'ret_60d': round(ret_60d, 4),
+        }
+    except Exception as e:
+        print(f"[指数指标计算失败] {e}")
+        return None
+
+
+@lru_cache(maxsize=1)
+def get_market_metrics():
+    """获取市场宏观指标（成交额、指数关键位、上涨家数比例）"""
+    cache_key = 'market_metrics'
+    if _is_cache_valid(cache_key):
+        with _cache_lock:
+            return _cached_data.get(cache_key)
+
+    activity = _fetch_market_activity() or {}
+    total_turnover_yi = _safe_float(activity.get('total_turnover_yi'), 0.0)
+
+    if total_turnover_yi <= 0:
+        total_turnover_yi = _fetch_total_turnover_fallback() or 0.0
+
+    sh_df = _fetch_index_history('sh000001')
+    hs300_df = _fetch_index_history('sh000300')
+
+    metrics = {
+        'total_turnover_yi': round(total_turnover_yi, 2),
+        'total_turnover_text': _format_turnover_yi(total_turnover_yi),
+        'up_ratio': activity.get('up_ratio', 0.0),
+        'up_count': activity.get('up_count', 0),
+        'down_count': activity.get('down_count', 0),
+        'sh_index': _index_metrics(sh_df),
+        'hs300': _index_metrics(hs300_df),
+        'is_mock': False,
+        'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }
+
+    if total_turnover_yi <= 0 and metrics['sh_index'] is None and metrics['hs300'] is None:
+        metrics = get_mock_market_metrics()
+
+    with _cache_lock:
+        _cached_data[cache_key] = metrics
+        _last_fetch_time[cache_key] = time.time()
+    return metrics
+
+
+def get_mock_market_metrics():
+    """市场指标兜底数据"""
+    return {
+        'total_turnover_yi': 12345.6,
+        'total_turnover_text': '1.23万亿',
+        'up_ratio': 0.65,
+        'up_count': 3200,
+        'down_count': 1700,
+        'sh_index': {
+            'close': 3245.0,
+            'ma200': 3120.0,
+            'ma200_slope_up': True,
+            'high52w': 3380.0,
+            'drawdown_from_high': 0.04,
+            'ret_60d': 0.12,
+        },
+        'hs300': {
+            'close': 3850.0,
+            'ma200': 3700.0,
+            'ma200_slope_up': True,
+            'high52w': 3980.0,
+            'drawdown_from_high': 0.033,
+            'ret_60d': 0.10,
+        },
+        'is_mock': True,
+        'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }
 
 
 def get_mock_hot_sectors():
@@ -669,43 +652,3 @@ def get_mock_sector_stocks():
         s['source'] = 'mock'
     return stocks
 
-
-def get_mock_hot_stocks():
-    trading_day = get_trading_day()
-    stocks = [
-        {'code': '002230', 'name': '科大讯飞', 'change_pct': 8.92, 'price': 58.65,
-         'volume': 8.56, 'rank': 1, 'rank_change': 5},
-        {'code': '688981', 'name': '中芯国际', 'change_pct': 7.56, 'price': 45.23,
-         'volume': 12.45, 'rank': 2, 'rank_change': 3},
-        {'code': '688027', 'name': '国盾量子', 'change_pct': 12.34, 'price': 168.90,
-         'volume': 15.67, 'rank': 3, 'rank_change': -2},
-        {'code': '300750', 'name': '宁德时代', 'change_pct': 3.45, 'price': 198.50,
-         'volume': 6.23, 'rank': 4, 'rank_change': 1},
-        {'code': '000063', 'name': '中兴通讯', 'change_pct': 4.89, 'price': 28.56,
-         'volume': 9.45, 'rank': 5, 'rank_change': -1},
-    ]
-    for s in stocks:
-        s['trading_day'] = trading_day
-        s['is_mock'] = True
-        s['source'] = 'mock'
-    return stocks
-
-
-def get_mock_fund_flow():
-    trading_day = get_trading_day()
-    stocks = [
-        {'code': '002230', 'name': '科大讯飞', 'change_pct': 8.92, 'price': 58.65,
-         'main_net_inflow': 85000000, 'super_large_net_inflow': 45000000, 'large_net_inflow': 40000000,
-         'medium_net_inflow': 32000000, 'small_net_inflow': -12000000, 'main_net_inflow_pct': 22.58, 'rank': 1},
-        {'code': '688981', 'name': '中芯国际', 'change_pct': 7.56, 'price': 45.23,
-         'main_net_inflow': 72000000, 'super_large_net_inflow': 38000000, 'large_net_inflow': 34000000,
-         'medium_net_inflow': 28000000, 'small_net_inflow': -8000000, 'main_net_inflow_pct': 18.76, 'rank': 2},
-        {'code': '300750', 'name': '宁德时代', 'change_pct': 3.45, 'price': 198.50,
-         'main_net_inflow': 125000000, 'super_large_net_inflow': 65000000, 'large_net_inflow': 60000000,
-         'medium_net_inflow': 42000000, 'small_net_inflow': -25000000, 'main_net_inflow_pct': 15.34, 'rank': 3},
-    ]
-    for s in stocks:
-        s['trading_day'] = trading_day
-        s['is_mock'] = True
-        s['source'] = 'mock'
-    return stocks

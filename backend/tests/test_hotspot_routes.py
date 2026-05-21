@@ -15,22 +15,22 @@ def client():
     app.config.update({
         'TESTING': True,
     })
-    
+
     with app.test_client() as client:
         yield client
 
 
 class TestHotspotRoutes:
-    def test_get_sectors_concept(self, client):
-        response = client.get('/api/hotspot/sectors?type=concept&limit=10')
+    def test_get_sectors_default(self, client):
+        response = client.get('/api/hotspot/sectors?limit=10')
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data['success'] == True
         assert 'data' in data
         assert 'total' in data
 
-    def test_get_sectors_industry(self, client):
-        response = client.get('/api/hotspot/sectors?type=industry&limit=10')
+    def test_get_sectors_legacy_concept_param_ignored(self, client):
+        response = client.get('/api/hotspot/sectors?type=concept&limit=10')
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data['success'] == True
@@ -54,22 +54,8 @@ class TestHotspotRoutes:
         data = json.loads(response.data)
         assert data['success'] == True
 
-    def test_get_hot_stocks(self, client):
-        response = client.get('/api/hotspot/stocks?limit=10')
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data['success'] == True
-        assert 'data' in data
-
     def test_get_stock_attribution(self, client):
         response = client.get('/api/hotspot/attribution/000001?name=测试股票')
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data['success'] == True
-        assert 'data' in data
-
-    def test_get_fund_flow(self, client):
-        response = client.get('/api/hotspot/fund-flow')
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data['success'] == True
@@ -81,6 +67,26 @@ class TestHotspotRoutes:
         data = json.loads(response.data)
         assert data['success'] == True
         assert 'data' in data
+        d = data['data']
+        assert 'market_status' in d
+        assert 'total_turnover' in d
+        assert 'total_turnover_text' in d
+        assert 'is_bull_market' in d
+        assert 'bull_market_score' in d
+        assert 'bull_market_reasons' in d
+        assert 'bull_market_summary' in d
+        assert isinstance(d['bull_market_reasons'], list)
+
+    def test_market_overview_fallback(self, client):
+        with patch('hotspot_fetcher.get_market_metrics', side_effect=Exception('boom')):
+            response = client.get('/api/hotspot/market-overview')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] == True
+        d = data['data']
+        assert 'total_turnover_text' in d
+        assert 'is_bull_market' in d
+        assert 'bull_market_reasons' in d
 
     def test_refresh_cache(self, client):
         response = client.post('/api/hotspot/refresh')
@@ -89,41 +95,28 @@ class TestHotspotRoutes:
         assert data['success'] == True
 
     def test_refresh_cache_with_type(self, client):
-        response = client.post('/api/hotspot/refresh', json={'type': 'hot_sectors'})
+        response = client.post('/api/hotspot/refresh', json={'type': 'industry_sectors'})
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data['success'] == True
+
+    def test_removed_hot_stocks_endpoint(self, client):
+        response = client.get('/api/hotspot/stocks?limit=10')
+        assert response.status_code == 404
+
+    def test_removed_fund_flow_endpoint(self, client):
+        response = client.get('/api/hotspot/fund-flow')
+        assert response.status_code == 404
 
 
 class TestHotspotResponseFormat:
     def test_sector_response_format(self, client):
         response = client.get('/api/hotspot/sectors?limit=5')
         data = json.loads(response.data)
-        
+
         if len(data['data']) > 0:
             sector = data['data'][0]
             assert 'name' in sector
             assert 'change_pct' in sector
             assert 'rank' in sector
             assert 'is_mock' in sector
-
-    def test_stock_response_format(self, client):
-        response = client.get('/api/hotspot/stocks?limit=5')
-        data = json.loads(response.data)
-        
-        if len(data['data']) > 0:
-            stock = data['data'][0]
-            assert 'code' in stock
-            assert 'name' in stock
-            assert 'change_pct' in stock
-            assert 'price' in stock
-
-    def test_fund_flow_response_format(self, client):
-        response = client.get('/api/hotspot/fund-flow')
-        data = json.loads(response.data)
-        
-        if len(data['data']) > 0:
-            fund = data['data'][0]
-            assert 'main_net_inflow' in fund
-            assert 'super_large_net_inflow' in fund
-            assert 'large_net_inflow' in fund
