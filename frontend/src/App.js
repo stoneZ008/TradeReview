@@ -11,6 +11,7 @@ import KDJChart from './components/KDJChart';
 import KDJStatus from './components/KDJStatus';
 import EquityChart from './components/EquityChart';
 import Watchlist from './components/Watchlist';
+import WatchlistSignals from './components/WatchlistSignals';
 import SignalPanel from './components/SignalPanel';
 import BacktestPanel from './components/BacktestPanel';
 import LoginPage from './pages/LoginPage';
@@ -226,6 +227,7 @@ function HomePage() {
           </div>
         </div>
       );
+      case 'signals': return <WatchlistSignals onStockSelect={handleStockSelectFromDao} />;
       case 'backtest': return <EquityChart backtestResult={backtestResult} stockData={stockData} symbol={symbol} />;
       default: return <KlineChart stockData={stockData} symbol={symbol} />;
     }
@@ -400,6 +402,9 @@ function HomePage() {
               <button className={`tab ${activeChart === 'kdj' ? 'active' : ''}`} onClick={() => setActiveChart('kdj')}>
                 KDJ
               </button>
+              <button className={`tab ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => setActiveChart('signals')}>
+                信号扫描
+              </button>
               {backtestResult && (
                 <button className={`tab ${activeChart === 'backtest' ? 'active' : ''}`} onClick={() => setActiveChart('backtest')}>
                   权益曲线
@@ -419,7 +424,9 @@ function HomePage() {
             </div>
 
             <div className="chart-container">
-              {!stockData ? (
+              {activeChart === 'signals' ? (
+                renderChart()
+              ) : !stockData ? (
                 <div className="empty-state">
                   <div className="empty-state-icon">📊</div>
                   <p className="empty-state-text">等待数据加载</p>

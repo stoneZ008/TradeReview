@@ -118,6 +118,27 @@ def init_user_db():
     ''')
     
     cursor.execute('''
+        CREATE TABLE IF NOT EXISTS watchlist_signal_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            stock_code TEXT NOT NULL,
+            stock_name TEXT NOT NULL,
+            last_trade_date TEXT,
+            close_price REAL,
+            pct_change REAL,
+            last_signal INTEGER DEFAULT 0,
+            last_signal_date TEXT,
+            has_signal_today INTEGER DEFAULT 0,
+            error TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, snapshot_date, stock_code),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_wss_user_date ON watchlist_signal_snapshots(user_id, snapshot_date)')
+
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS audit_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,

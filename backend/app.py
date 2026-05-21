@@ -8,6 +8,7 @@ from datetime import timedelta
 from industry_db import seed_default_data
 from user_db import seed_initial_data
 from routes import auth_bp, stock_bp, admin_bp, watchlist_bp, industry_bp, billing_bp, hotspot_bp
+from scheduler import init_scheduler
 
 
 def create_app():
@@ -35,6 +36,8 @@ def create_app():
     @app.route('/api/health', methods=['GET'])
     def health():
         return jsonify({'status': 'ok'})
+
+    init_scheduler()
 
     return app
 

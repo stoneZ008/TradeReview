@@ -216,6 +216,22 @@ export async function removeFromWatchlist(code) {
   return data.data;
 }
 
+export async function fetchWatchlistSignals() {
+  const res = await fetchWithAuth(`${API_BASE}/watchlist/signals`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '加载自选股信号失败');
+  return data;
+}
+
+export async function refreshWatchlistSignals() {
+  const res = await fetchWithAuth(`${API_BASE}/watchlist/signals/refresh`, {
+    method: 'POST',
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '刷新失败');
+  return data;
+}
+
 export async function getSubscriptionPlans() {
   const res = await fetchWithAuth(`${API_BASE}/subscription/plans`);
   const data = await res.json();

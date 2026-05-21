@@ -4,6 +4,7 @@ import sqlite3
 from routes import watchlist_bp
 from user_db import get_connection
 from auth import requires_permission
+from watchlist_scanner import scan_user_watchlist, get_snapshots, has_today_snapshot
 
 
 @watchlist_bp.route('', methods=['GET'])
@@ -71,3 +72,36 @@ def delete_watchlist(code):
     response['success'] = True
     response['message'] = '删除成功'
     return jsonify(response)
+
+
+@watchlist_bp.route('/signals', methods=['GET'])
+@requires_permission('watchlist:read')
+def get_watchlist_signals():
+    """获取当日自选股信号快照。若当日无快照则即时扫描入库（懒加载兜底）。"""
+    user_id = g.user_id
+    if not user_id:
+        return jsonify({'error': '需要登录'}), 401
+
+    try:
+        if not has_today_snapshot(user_id):
+            snapshots, date_str = scan_user_watchlist(user_id, force=False)
+        else:
+            snapshots, date_str = get_snapshots(user_id)
+        return jsonify({'success': True, 'data': snapshots, 'snapshot_date': date_str})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@watchlist_bp.route('/signals/refresh', methods=['POST'])
+@requires_permission('watchlist:read')
+def refresh_watchlist_signals():
+    """强制重新扫描当日自选股信号，覆盖已有快照。"""
+    user_id = g.user_id
+    if not user_id:
+        return jsonify({'error': '需要登录'}), 401
+
+    try:
+        snapshots, date_str = scan_user_watchlist(user_id, force=True)
+        return jsonify({'success': True, 'data': snapshots, 'snapshot_date': date_str})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
