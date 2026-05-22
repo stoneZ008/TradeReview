@@ -32,7 +32,11 @@ def get_stock_data(symbol):
     try:
         df = fetch_stock_data(symbol, start_date, end_date)
     except requests.exceptions.RequestException as e:
-        return jsonify({'error': str(e)}), 503
+        msg = str(e)
+        status = 503
+        if '限流' in msg or '429' in msg or 'rate' in msg.lower():
+            status = 429
+        return jsonify({'error': msg}), status
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     

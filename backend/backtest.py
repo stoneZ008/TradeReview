@@ -235,6 +235,15 @@ def run_backtest(symbol, start_date, end_date, config=None):
     if df.empty:
         return {'error': '无法获取数据'}
     
+    # 回测只用 T-1 已收盘数据，剔除盘中合成的当日 K 线
+    from datetime import datetime
+    today = pd.Timestamp(datetime.now().date())
+    if not df.empty and df.index[-1].date() >= today.date():
+        df = df.iloc[:-1]
+    
+    if df.empty:
+        return {'error': '无法获取数据'}
+    
     # 计算技术指标
     df_with_indicators = calculate_all_indicators(df)
     
