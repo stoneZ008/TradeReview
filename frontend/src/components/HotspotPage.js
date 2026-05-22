@@ -163,21 +163,28 @@ function HotspotPage({ onStockSelect }) {
       <div className="content-grid">
         <div className="panel">
           <div className="panel-header"><div className="panel-title">🔥 行业板块排行</div></div>
-          <div className="panel-content">
+          <div className="panel-content sector-grid-content">
             {loading ? <div className="loading-spinner"><div className="spinner"></div></div> : sectors.length === 0 ? <div className="empty-state">暂无数据</div> : (
-              <table className="table">
-                <thead><tr><th>排名</th><th>板块名称</th><th>涨跌幅</th><th>涨跌家数</th></tr></thead>
-                <tbody>
-                  {sectors.map((sector, idx) => (
-                    <tr key={idx} onClick={() => handleSectorClick(sector)}>
-                      <td><div className={getRankBadgeClass(sector.rank)}>{sector.rank}</div></td>
-                      <td><div className="stock-name">{sector.name}</div></td>
-                      <td><span className="change-pct" style={{ color: getChangeColor(sector.change_pct) }}>{sector.change_pct > 0 ? '+' : ''}{sector.change_pct}%</span></td>
-                      <td><span style={{ color: '#ef4444' }}>{sector.up_count}涨</span> / <span style={{ color: '#22c55e' }}>{sector.down_count}跌</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="sector-grid">
+                {sectors.map((sector, idx) => {
+                  const pct = sector.change_pct;
+                  const tone = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+                  const intensity = Math.min(Math.abs(pct) / 5, 1);
+                  const isActive = selectedSector?.name === sector.name;
+                  return (
+                    <div
+                      key={idx}
+                      className={`sector-tile ${tone}${isActive ? ' active' : ''}`}
+                      style={{ '--tile-intensity': intensity }}
+                      onClick={() => handleSectorClick(sector)}
+                      title={`${sector.name}  ${pct > 0 ? '+' : ''}${pct}%  |  ${sector.up_count}涨 / ${sector.down_count}跌`}
+                    >
+                      <div className="tile-name">{sector.name}</div>
+                      <div className="tile-pct">{pct > 0 ? '+' : ''}{pct}%</div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
