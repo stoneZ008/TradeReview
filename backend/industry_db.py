@@ -4,12 +4,40 @@ import sqlite3
 import json
 from datetime import datetime
 import os
+from db_migrate import ensure_columns
 
 # 数据库文件路径
-DB_PATH = os.path.join(os.path.dirname(__file__), 'industries.db')
+DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(__file__), 'data'))
+DB_PATH = os.path.join(DATA_DIR, 'industries.db')
+
+INDUSTRY_SCHEMA_COLUMNS = {
+    'industries': [
+        ('name', 'TEXT NOT NULL'),
+        ('icon', "TEXT NOT NULL DEFAULT '🏢'"),
+        ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
+        ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
+    ],
+    'sub_industries': [
+        ('industry_id', 'INTEGER NOT NULL'),
+        ('name', 'TEXT NOT NULL'),
+        ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
+        ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
+    ],
+    'companies': [
+        ('sub_industry_id', 'INTEGER NOT NULL'),
+        ('code', 'TEXT NOT NULL'),
+        ('name', 'TEXT NOT NULL'),
+        ('role', 'TEXT'),
+        ('feature', 'TEXT'),
+        ('description', 'TEXT'),
+        ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
+        ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
+    ],
+}
 
 def init_db():
     """初始化数据库表"""
+    os.makedirs(DATA_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -55,9 +83,17 @@ def init_db():
     conn.commit()
     conn.close()
 
+def migrate_industry_db():
+    os.makedirs(DATA_DIR, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    for table_name, columns in INDUSTRY_SCHEMA_COLUMNS.items():
+        ensure_columns(conn, table_name, columns)
+    conn.close()
+
 def seed_default_data():
     """初始化默认数据"""
     init_db()
+    migrate_industry_db()
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()

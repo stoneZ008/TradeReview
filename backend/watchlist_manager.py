@@ -1,7 +1,8 @@
 import json
 import os
 
-WATCHLIST_FILE = 'watchlist.json'
+DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
+WATCHLIST_FILE = os.path.join(DATA_DIR, 'watchlist.json')
 
 def load_watchlist():
     """从文件加载自选股"""
@@ -25,6 +26,7 @@ def load_watchlist():
 def save_watchlist(watchlist):
     """保存自选股到文件"""
     try:
+        os.makedirs(DATA_DIR, exist_ok=True)
         with open(WATCHLIST_FILE, 'w', encoding='utf-8') as f:
             json.dump(watchlist, f, ensure_ascii=False, indent=2)
         return True

@@ -217,11 +217,15 @@ backend/server.log
 backend/watchlist.json
 backend/users.db
 backend/industries.db
+backend/data/
 backend/certs/*.pem
 backend/certs/*.key
 backend/.env
 backend/venv/
 venv/
+
+# Backup files
+backup/
 
 # IDE
 .vscode/

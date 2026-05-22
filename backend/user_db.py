@@ -2,10 +2,104 @@ import sqlite3
 import json
 import os
 from datetime import datetime, timedelta
+from db_migrate import ensure_columns, run_migrations
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
+DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(__file__), 'data'))
+DB_PATH = os.path.join(DATA_DIR, 'users.db')
+
+SCHEMA_COLUMNS = {
+    'users': [
+        ('id', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('username', 'TEXT NOT NULL UNIQUE'),
+        ('email', 'TEXT NOT NULL UNIQUE'),
+        ('password_hash', 'TEXT NOT NULL'),
+        ('is_active', 'INTEGER DEFAULT 1'),
+        ('trial_end_at', 'TIMESTAMP'),
+        ('last_login', 'TIMESTAMP'),
+        ('created_at', "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+        ('updated_at', "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+    ],
+    'roles': [
+        ('id', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('name', 'TEXT NOT NULL UNIQUE'),
+        ('description', 'TEXT'),
+        ('is_system', 'INTEGER DEFAULT 0'),
+    ],
+    'permissions': [
+        ('id', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('name', 'TEXT NOT NULL UNIQUE'),
+        ('resource', 'TEXT NOT NULL'),
+        ('action', 'TEXT NOT NULL'),
+        ('description', 'TEXT'),
+    ],
+    'role_permissions': [
+        ('role_id', 'INTEGER NOT NULL'),
+        ('permission_id', 'INTEGER NOT NULL'),
+    ],
+    'user_roles': [
+        ('user_id', 'INTEGER NOT NULL'),
+        ('role_id', 'INTEGER NOT NULL'),
+    ],
+    'subscription_plans': [
+        ('id', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('name', 'TEXT NOT NULL UNIQUE'),
+        ('monthly_price', 'REAL NOT NULL DEFAULT 0'),
+        ('yearly_price', 'REAL NOT NULL DEFAULT 0'),
+        ('max_backtests_monthly', 'INTEGER DEFAULT -1'),
+        ('features_json', "TEXT DEFAULT '{}'"),
+        ('description', 'TEXT'),
+    ],
+    'subscriptions': [
+        ('id', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('user_id', 'INTEGER NOT NULL'),
+        ('plan_id', 'INTEGER NOT NULL'),
+        ('start_date', 'TIMESTAMP NOT NULL'),
+        ('end_date', 'TIMESTAMP NOT NULL'),
+        ('status', "TEXT NOT NULL DEFAULT 'active'"),
+        ('created_by', 'INTEGER'),
+        ('created_at', "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+    ],
+    'backtest_usage': [
+        ('id', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('user_id', 'INTEGER NOT NULL'),
+        ('count', 'INTEGER DEFAULT 0'),
+        ('month', 'TEXT NOT NULL'),
+    ],
+    'user_watchlists': [
+        ('id', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('user_id', 'INTEGER NOT NULL'),
+        ('stock_code', 'TEXT NOT NULL'),
+        ('stock_name', 'TEXT NOT NULL'),
+        ('created_at', "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+    ],
+    'watchlist_signal_snapshots': [
+        ('id', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('user_id', 'INTEGER NOT NULL'),
+        ('snapshot_date', 'TEXT NOT NULL'),
+        ('stock_code', 'TEXT NOT NULL'),
+        ('stock_name', 'TEXT NOT NULL'),
+        ('last_trade_date', 'TEXT'),
+        ('close_price', 'REAL'),
+        ('pct_change', 'REAL'),
+        ('last_signal', 'INTEGER DEFAULT 0'),
+        ('last_signal_date', 'TEXT'),
+        ('has_signal_today', 'INTEGER DEFAULT 0'),
+        ('error', 'TEXT'),
+        ('created_at', "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+    ],
+    'audit_logs': [
+        ('id', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('user_id', 'INTEGER'),
+        ('action', 'TEXT NOT NULL'),
+        ('resource', 'TEXT'),
+        ('ip_address', 'TEXT'),
+        ('user_agent', 'TEXT'),
+        ('created_at', "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+    ],
+}
 
 def get_connection():
+    os.makedirs(DATA_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -154,9 +248,17 @@ def init_user_db():
     conn.commit()
     conn.close()
 
+def migrate_user_db():
+    conn = get_connection()
+    for table_name, columns in SCHEMA_COLUMNS.items():
+        cols_to_add = [(c[0], c[1]) for c in columns if c[0] != 'id']
+        ensure_columns(conn, table_name, cols_to_add)
+    conn.close()
+
 def seed_initial_data():
     import os
     init_user_db()
+    migrate_user_db()
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -292,7 +394,7 @@ def seed_initial_data():
         end_date = (datetime.now() + timedelta(days=365*10)).isoformat()
         
         cursor.execute('''
-            INSERT INTO subscriptions (user_id, plan_id, start_date, end_date, status, assigned_by)
+            INSERT INTO subscriptions (user_id, plan_id, start_date, end_date, status, created_by)
             VALUES (?, ?, ?, ?, 'active', 0)
         ''', (admin_id, enterprise_plan_id, start_date, end_date))
         
