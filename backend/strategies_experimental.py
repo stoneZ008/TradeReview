@@ -29,7 +29,11 @@ class BOLLSupportV2(TradingStrategy):
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
-        signals[(df["low"].shift(1) <= df["boll_lower"].shift(1) * self.factor) & (df["close"] > df["boll_lower"]) & (df["close"] > df["open"])] = 1
+        signals[
+            (df["low"].shift(1) <= df["boll_lower"].shift(1) * self.factor)
+            & (df["close"] > df["boll_lower"])
+            & (df["close"] > df["open"])
+        ] = 1
         return signals
 
 
@@ -64,7 +68,9 @@ class RSIOversoldV2(TradingStrategy):
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
-        signals[(df["rsi"].shift(1) < self.threshold) & (df["rsi"] > df["rsi"].shift(1)) & (df["rsi"] < self.threshold + 8)] = 1
+        signals[
+            (df["rsi"].shift(1) < self.threshold) & (df["rsi"] > df["rsi"].shift(1)) & (df["rsi"] < self.threshold + 8)
+        ] = 1
         return signals
 
 
@@ -92,7 +98,12 @@ class PullbackReversalV2(TradingStrategy):
             recent_high = df["high"].iloc[i - self.lookback : i].max()
             recent_low = df["low"].iloc[i - self.lookback : i + 1].min()
             pullback = (recent_high - recent_low) / recent_high if recent_high > 0 else 0
-            if pullback >= self.min_pullback and df["close"].iloc[i] > df["open"].iloc[i] and df["close"].iloc[i] > df["close"].iloc[i - 1] and (df["macd_hist"].iloc[i] > df["macd_hist"].iloc[i - 1] or df["rsi"].iloc[i] > df["rsi"].iloc[i - 1]):
+            if (
+                pullback >= self.min_pullback
+                and df["close"].iloc[i] > df["open"].iloc[i]
+                and df["close"].iloc[i] > df["close"].iloc[i - 1]
+                and (df["macd_hist"].iloc[i] > df["macd_hist"].iloc[i - 1] or df["rsi"].iloc[i] > df["rsi"].iloc[i - 1])
+            ):
                 signals.iloc[i] = 1
         return signals
 
@@ -109,7 +120,9 @@ class TrendPullbackRestartV2(TradingStrategy):
             had_pullback = df["close"].iloc[i - 1] < df["ma5"].iloc[i - 1]
             trend_ok = df["ma5"].iloc[i] >= df["ma10"].iloc[i] and df["close"].iloc[i] > df["ma20"].iloc[i]
             restart = df["close"].iloc[i] > prev_high and df["close"].iloc[i] > df["open"].iloc[i]
-            momentum_ok = df["macd_hist"].iloc[i] > df["macd_hist"].iloc[i - 1] or df["rsi"].iloc[i] > df["rsi"].iloc[i - 1]
+            momentum_ok = (
+                df["macd_hist"].iloc[i] > df["macd_hist"].iloc[i - 1] or df["rsi"].iloc[i] > df["rsi"].iloc[i - 1]
+            )
             if had_pullback and trend_ok and restart and momentum_ok:
                 signals.iloc[i] = 1
         return signals
@@ -126,9 +139,17 @@ class BottomReversalV2(TradingStrategy):
         signals = pd.Series(0, index=df.index)
         for i in range(self.lookback, len(df)):
             window = df["low"].iloc[i - self.lookback : i + 1]
-            near_bottom = window.reset_index(drop=True).idxmin() >= len(window) - 4 or df["low"].iloc[i] <= window.min() * 1.03
-            ok = near_bottom and df["close"].iloc[i] > df["open"].iloc[i] and df["close"].iloc[i] > df["close"].iloc[i - 1]
-            improve = df["macd_hist"].iloc[i] > df["macd_hist"].iloc[i - 1] or (df["rsi"].iloc[i] < self.rsi_threshold and df["rsi"].iloc[i] > df["rsi"].iloc[i - 1])
+            near_bottom = (
+                window.reset_index(drop=True).idxmin() >= len(window) - 4 or df["low"].iloc[i] <= window.min() * 1.03
+            )
+            ok = (
+                near_bottom
+                and df["close"].iloc[i] > df["open"].iloc[i]
+                and df["close"].iloc[i] > df["close"].iloc[i - 1]
+            )
+            improve = df["macd_hist"].iloc[i] > df["macd_hist"].iloc[i - 1] or (
+                df["rsi"].iloc[i] < self.rsi_threshold and df["rsi"].iloc[i] > df["rsi"].iloc[i - 1]
+            )
             if ok and improve and df["vol_ratio"].iloc[i] >= self.ratio:
                 signals.iloc[i] = 1
         return signals
@@ -154,7 +175,11 @@ class BOLLResistanceV2(TradingStrategy):
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
-        signals[(df["high"].shift(1) >= df["boll_upper"].shift(1) / self.factor) & (df["close"] < df["boll_upper"]) & ((df["close"] - df["open"]) / df["open"] < -0.03)] = -1
+        signals[
+            (df["high"].shift(1) >= df["boll_upper"].shift(1) / self.factor)
+            & (df["close"] < df["boll_upper"])
+            & ((df["close"] - df["open"]) / df["open"] < -0.03)
+        ] = -1
         return signals
 
 
@@ -165,7 +190,11 @@ class PriceBelowMA20V2(TradingStrategy):
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
-        signals[(df["close"].shift(1) >= df["ma20"].shift(1) * (1 - self.deviation)) & (df["close"] < df["ma20"] * (1 - self.deviation)) & (df["close"] < df["open"])] = -1
+        signals[
+            (df["close"].shift(1) >= df["ma20"].shift(1) * (1 - self.deviation))
+            & (df["close"] < df["ma20"] * (1 - self.deviation))
+            & (df["close"] < df["open"])
+        ] = -1
         return signals
 
 
@@ -204,7 +233,9 @@ class RSIOverboughtV2(TradingStrategy):
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
-        signals[(df["rsi"].shift(1) > self.threshold) & (df["rsi"] < df["rsi"].shift(1)) & (df["rsi"] > self.threshold - 5)] = -1
+        signals[
+            (df["rsi"].shift(1) > self.threshold) & (df["rsi"] < df["rsi"].shift(1)) & (df["rsi"] > self.threshold - 5)
+        ] = -1
         return signals
 
 
@@ -230,7 +261,6 @@ class CompositeStrategyV2:
 
     def _default_strategies(self):
         p = self.params
-        min_pullback = 0.04 if p.get("macd_zero_filter") == "off" else 0.05 if p.get("macd_zero_filter") == "near" else 0.06
         return [
             MACDGoldenCrossV2(1.5, p.get("macd_zero_filter", "strict")),
             BOLLSupportV2(1.2, p.get("boll_touch_factor", 1.0)),
@@ -238,7 +268,9 @@ class CompositeStrategyV2:
             VolumeBreakoutV2(1.0, p.get("vol_breakout_ratio", 2.0)),
             RSIOversoldV2(1.0, p.get("rsi_oversold", 30)),
             KDJGoldenCrossV2(1.0, p.get("kdj_k_threshold", 30)),
-            BottomReversalV2(1.5, ratio=p.get("bottom_reversal_ratio", 1.5), rsi_threshold=p.get("rsi_oversold", 30) + 10),
+            BottomReversalV2(
+                1.5, ratio=p.get("bottom_reversal_ratio", 1.5), rsi_threshold=p.get("rsi_oversold", 30) + 10
+            ),
             TrendPullbackRestartV2(1.2),
             MACDDeathCrossV2(1.5, p.get("macd_zero_filter", "strict")),
             BOLLResistanceV2(1.2, p.get("boll_touch_factor", 1.0)),
@@ -283,17 +315,22 @@ class CompositeStrategyV2:
                 consecutive_sell_count += 1
                 days_since_buy = i - last_buy_idx if last_buy_idx >= 0 else i + 1
                 days_since_last_sell = i - last_sell_idx if last_sell_idx >= 0 else i + 1
-                if (consecutive_sell_count >= 3 and days_since_buy > 10) or (consecutive_sell_count >= 2 and days_since_last_sell < 5):
+                if (consecutive_sell_count >= 3 and days_since_buy > 10) or (
+                    consecutive_sell_count >= 2 and days_since_last_sell < 5
+                ):
                     final_signal.iloc[i] = 0
                 else:
                     last_sell_idx = i
-        return pd.DataFrame({
-            "buy_score": buy_score,
-            "sell_score": sell_score,
-            "signal": final_signal,
-            "trend": trend,
-            "composite_score": buy_score - sell_score,
-        }, index=df.index)
+        return pd.DataFrame(
+            {
+                "buy_score": buy_score,
+                "sell_score": sell_score,
+                "signal": final_signal,
+                "trend": trend,
+                "composite_score": buy_score - sell_score,
+            },
+            index=df.index,
+        )
 
 
 def generate_trading_signals_v2(df, config=None):

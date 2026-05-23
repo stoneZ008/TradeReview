@@ -3,7 +3,14 @@ import pandas as pd
 import requests
 
 from routes import experimental_bp
-from auth import requires_roles, requires_permission, requires_us_market, check_backtest_quota, increment_backtest_usage, add_audit_log
+from auth import (
+    requires_roles,
+    requires_permission,
+    requires_us_market,
+    check_backtest_quota,
+    increment_backtest_usage,
+    add_audit_log,
+)
 from data_fetcher import fetch_stock_data, get_stock_info
 from indicators import calculate_all_indicators, find_support_resistance
 from strategies import generate_trading_signals
@@ -56,7 +63,9 @@ def _format_backtest_result(result):
     for t in result["trades"]:
         trade = {k: v for k, v in t.items()}
         if "date" in trade:
-            trade["date"] = trade["date"].strftime("%Y-%m-%d") if hasattr(trade["date"], "strftime") else str(trade["date"])
+            trade["date"] = (
+                trade["date"].strftime("%Y-%m-%d") if hasattr(trade["date"], "strftime") else str(trade["date"])
+            )
         trades.append(trade)
     signals = []
     for date, row in result["signals"].iterrows():

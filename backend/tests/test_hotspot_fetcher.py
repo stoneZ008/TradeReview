@@ -1,8 +1,7 @@
-import pytest
 import sys
 import os
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -53,13 +52,13 @@ class TestHotspotFetcherMock:
         with patch("hotspot_fetcher._fetch_ths_industries", side_effect=Exception("API Error")):
             sectors = get_industry_sectors(limit=10)
             assert len(sectors) > 0
-            assert sectors[0]["is_mock"] == True
+            assert sectors[0]["is_mock"] is True
 
     def test_get_sector_stocks_mock_fallback(self):
         with patch("hotspot_fetcher._fetch_sector_stocks_em", side_effect=Exception("API Error")):
             stocks = get_sector_stocks("测试板块")
             assert len(stocks) > 0
-            assert stocks[0]["is_mock"] == True
+            assert stocks[0]["is_mock"] is True
 
     def test_get_market_metrics_mock_fallback(self):
         clear_cache()
@@ -72,7 +71,7 @@ class TestHotspotFetcherMock:
             assert "total_turnover_text" in metrics
             assert "sh_index" in metrics
             assert "hs300" in metrics
-            assert metrics.get("is_mock") == True
+            assert metrics.get("is_mock") is True
 
 
 class TestHotspotFetcherCache:

@@ -27,7 +27,7 @@ class TestHotspotRoutes:
         response = client.get("/api/hotspot/sectors?limit=10")
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["success"] == True
+        assert data["success"] is True
         assert "data" in data
         assert "total" in data
 
@@ -35,13 +35,13 @@ class TestHotspotRoutes:
         response = client.get("/api/hotspot/sectors?type=concept&limit=10")
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["success"] == True
+        assert data["success"] is True
 
     def test_get_sector_detail(self, client):
         response = client.get("/api/hotspot/sector/AI")
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["success"] == True
+        assert data["success"] is True
         assert "stocks" in data
         assert "attribution" in data
 
@@ -49,20 +49,20 @@ class TestHotspotRoutes:
         response = client.get("/api/hotspot/sector/半导体?type=industry")
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["success"] == True
+        assert data["success"] is True
 
     def test_get_stock_attribution(self, client):
         response = client.get("/api/hotspot/attribution/000001?name=测试股票")
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["success"] == True
+        assert data["success"] is True
         assert "data" in data
 
     def test_get_market_overview(self, client):
         response = client.get("/api/hotspot/market-overview")
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["success"] == True
+        assert data["success"] is True
         assert "data" in data
         d = data["data"]
         assert "market_status" in d
@@ -79,7 +79,7 @@ class TestHotspotRoutes:
             response = client.get("/api/hotspot/market-overview")
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["success"] == True
+        assert data["success"] is True
         d = data["data"]
         assert "total_turnover_text" in d
         assert "is_bull_market" in d
@@ -89,13 +89,13 @@ class TestHotspotRoutes:
         response = client.post("/api/hotspot/refresh")
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["success"] == True
+        assert data["success"] is True
 
     def test_refresh_cache_with_type(self, client):
         response = client.post("/api/hotspot/refresh", json={"type": "industry_sectors"})
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["success"] == True
+        assert data["success"] is True
 
     def test_removed_hot_stocks_endpoint(self, client):
         response = client.get("/api/hotspot/stocks?limit=10")
