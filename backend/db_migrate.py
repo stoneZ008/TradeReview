@@ -22,10 +22,7 @@ import sqlite3
 
 def _table_exists(conn, table_name):
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
-        (table_name,)
-    )
+    cursor.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
     return cursor.fetchone() is not None
 
 
@@ -56,9 +53,7 @@ def ensure_columns(conn, table_name, columns):
             continue
         safe_type = _sanitize_column_def(col_type)
         try:
-            cursor.execute(
-                f"ALTER TABLE {table_name} ADD COLUMN {col_name} {safe_type}"
-            )
+            cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {safe_type}")
             added.append(col_name)
         except sqlite3.OperationalError as e:
             print(f"[db_migrate] 警告: 跳过 {table_name}.{col_name} 迁移 ({e})")
@@ -69,38 +64,40 @@ def ensure_columns(conn, table_name, columns):
 
 def _sanitize_column_def(col_type):
     """剥离 ALTER TABLE ADD COLUMN 不支持的子句。"""
-    upper = col_type.upper()
     cleaned = col_type
     # 去除 UNIQUE / PRIMARY KEY 约束
-    for token in (' UNIQUE', ' PRIMARY KEY', ' AUTOINCREMENT'):
+    for token in (" UNIQUE", " PRIMARY KEY", " AUTOINCREMENT"):
         idx = cleaned.upper().find(token)
         while idx != -1:
-            cleaned = cleaned[:idx] + cleaned[idx + len(token):]
+            cleaned = cleaned[:idx] + cleaned[idx + len(token) :]
             idx = cleaned.upper().find(token)
     # CURRENT_TIMESTAMP 默认值改为 NULL
-    if 'CURRENT_TIMESTAMP' in cleaned.upper():
+    if "CURRENT_TIMESTAMP" in cleaned.upper():
         # 简化处理：直接去掉 DEFAULT CURRENT_TIMESTAMP
         import re
+
         cleaned = re.sub(
             r"DEFAULT\s+CURRENT_TIMESTAMP",
-            '',
+            "",
             cleaned,
             flags=re.IGNORECASE,
         )
     # NOT NULL 但没有默认值时，改为允许 NULL
-    if 'NOT NULL' in cleaned.upper() and 'DEFAULT' not in cleaned.upper():
-        cleaned = cleaned.replace('NOT NULL', '').replace('not null', '')
-    return ' '.join(cleaned.split())
+    if "NOT NULL" in cleaned.upper() and "DEFAULT" not in cleaned.upper():
+        cleaned = cleaned.replace("NOT NULL", "").replace("not null", "")
+    return " ".join(cleaned.split())
 
 
 def _ensure_migrations_table(conn):
     cursor = conn.cursor()
-    cursor.execute('''
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS schema_migrations (
             id TEXT PRIMARY KEY,
             applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    """
+    )
     conn.commit()
 
 
@@ -112,7 +109,7 @@ def run_migrations(conn, migrations):
     """
     _ensure_migrations_table(conn)
     cursor = conn.cursor()
-    cursor.execute('SELECT id FROM schema_migrations')
+    cursor.execute("SELECT id FROM schema_migrations")
     applied = {row[0] for row in cursor.fetchall()}
 
     for mig_id, action in migrations:
@@ -123,19 +120,14 @@ def run_migrations(conn, migrations):
                 action(conn)
             else:
                 cursor.execute(action)
-            cursor.execute(
-                'INSERT INTO schema_migrations (id) VALUES (?)', (mig_id,)
-            )
+            cursor.execute("INSERT INTO schema_migrations (id) VALUES (?)", (mig_id,))
             conn.commit()
             print(f"[db_migrate] 已应用迁移: {mig_id}")
         except sqlite3.OperationalError as e:
             # 列已存在等情况按已完成处理
             msg = str(e).lower()
-            if 'duplicate column name' in msg or 'already exists' in msg:
-                cursor.execute(
-                    'INSERT OR IGNORE INTO schema_migrations (id) VALUES (?)',
-                    (mig_id,)
-                )
+            if "duplicate column name" in msg or "already exists" in msg:
+                cursor.execute("INSERT OR IGNORE INTO schema_migrations (id) VALUES (?)", (mig_id,))
                 conn.commit()
                 print(f"[db_migrate] 跳过已存在的变更: {mig_id}")
             else:

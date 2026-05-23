@@ -15,9 +15,9 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
 
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'trade-review-secret-key-2024')
-    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
-    app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=30)
+    app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "trade-review-secret-key-2024")
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
+    app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
 
     JWTManager(app)
     Bcrypt(app)
@@ -33,9 +33,9 @@ def create_app():
     app.register_blueprint(billing_bp)
     app.register_blueprint(hotspot_bp)
 
-    @app.route('/api/health', methods=['GET'])
+    @app.route("/api/health", methods=["GET"])
     def health():
-        return jsonify({'status': 'ok'})
+        return jsonify({"status": "ok"})
 
     init_scheduler()
 
@@ -45,5 +45,5 @@ def create_app():
 app = create_app()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True, port=5000)

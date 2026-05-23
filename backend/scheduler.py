@@ -7,15 +7,15 @@ import os
 import tempfile
 
 _scheduler = None
-_LOCK_FILE = os.path.join(tempfile.gettempdir(), 'tradereview_scheduler.lock')
+_LOCK_FILE = os.path.join(tempfile.gettempdir(), "tradereview_scheduler.lock")
 
 
 def _acquire_lock():
     """简单 PID 锁，确保只有一个进程启动调度器"""
     try:
         if os.path.exists(_LOCK_FILE):
-            with open(_LOCK_FILE, 'r') as f:
-                old_pid = int(f.read().strip() or '0')
+            with open(_LOCK_FILE, "r") as f:
+                old_pid = int(f.read().strip() or "0")
             # 检查老进程是否还在
             if old_pid > 0:
                 try:
@@ -23,7 +23,7 @@ def _acquire_lock():
                     return False  # 老进程仍存活
                 except OSError:
                     pass  # 老进程已死，可以接管
-        with open(_LOCK_FILE, 'w') as f:
+        with open(_LOCK_FILE, "w") as f:
             f.write(str(os.getpid()))
         return True
     except Exception as e:
@@ -34,8 +34,8 @@ def _acquire_lock():
 def _release_lock():
     try:
         if os.path.exists(_LOCK_FILE):
-            with open(_LOCK_FILE, 'r') as f:
-                pid = int(f.read().strip() or '0')
+            with open(_LOCK_FILE, "r") as f:
+                pid = int(f.read().strip() or "0")
             if pid == os.getpid():
                 os.remove(_LOCK_FILE)
     except Exception:
@@ -49,7 +49,7 @@ def init_scheduler():
         return
 
     if not _acquire_lock():
-        print('[Scheduler] 另有进程已启动调度器，跳过')
+        print("[Scheduler] 另有进程已启动调度器，跳过")
         return
 
     try:
@@ -57,21 +57,21 @@ def init_scheduler():
         from apscheduler.triggers.cron import CronTrigger
         from watchlist_scanner import scan_all_users
 
-        _scheduler = BackgroundScheduler(timezone='Asia/Shanghai')
+        _scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
         # 周一至周五 16:00 执行（收盘后 1 小时）
         _scheduler.add_job(
             scan_all_users,
-            trigger=CronTrigger(day_of_week='mon-fri', hour=16, minute=0),
-            id='watchlist_daily_scan',
+            trigger=CronTrigger(day_of_week="mon-fri", hour=16, minute=0),
+            id="watchlist_daily_scan",
             replace_existing=True,
             max_instances=1,
-            coalesce=True
+            coalesce=True,
         )
         _scheduler.start()
         atexit.register(_shutdown)
-        print('[Scheduler] 调度器已启动，每个交易日 16:00 扫描自选股信号')
+        print("[Scheduler] 调度器已启动，每个交易日 16:00 扫描自选股信号")
     except Exception as e:
-        print(f'[Scheduler] 启动失败: {e}')
+        print(f"[Scheduler] 启动失败: {e}")
         _release_lock()
 
 
