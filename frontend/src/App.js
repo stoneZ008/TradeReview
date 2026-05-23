@@ -19,7 +19,7 @@ import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SubscriptionPage from './pages/SubscriptionPage';
-import { fetchStockData as apiFetchStockData, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist } from './api';
+import { fetchStockData as apiFetchStockData, fetchExperimentalStock as apiFetchExperimentalStock, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist } from './api';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -53,11 +53,22 @@ function HomePage() {
     return userRole === 'user_pro';
   }, [user]);
 
+  const hasKline2Access = true;
+
+  const hasHotspotAccess = React.useMemo(() => {
+    if (!user) return false;
+    const roles = user.roles || [];
+    return roles.includes('admin') || roles.includes('super_admin');
+  }, [user]);
+
   React.useEffect(() => {
     if (!hasDaoAccess && activePage === 'dao') {
       setActivePage('shu');
     }
-  }, [hasDaoAccess, activePage]);
+    if (!hasHotspotAccess && activePage === 'hotspot') {
+      setActivePage('shu');
+    }
+  }, [hasDaoAccess, hasHotspotAccess, activePage]);
 
   const getCurrentDate = () => {
     const today = new Date();
@@ -71,6 +82,7 @@ function HomePage() {
   const [endDate, setEndDate] = useState(getCurrentDate());
   const [loading, setLoading] = useState(false);
   const [stockData, setStockData] = useState(null);
+  const [stockDataV2, setStockDataV2] = useState(null);
   const [activeChart, setActiveChart] = useState('kline');
   const [activeTab, setActiveTab] = useState('signals');
   const [backtestResult, setBacktestResult] = useState(null);
@@ -163,8 +175,21 @@ function HomePage() {
     if (!code) return;
     setLoading(true);
     try {
-      const data = await apiFetchStockData(code, startDate, endDate, rsiPeriod);
-      setStockData(trimDataForMobile(data));
+      const [defaultResult, aggressiveResult] = await Promise.allSettled([
+        apiFetchStockData(code, startDate, endDate, rsiPeriod),
+        apiFetchExperimentalStock(code, startDate, endDate, rsiPeriod),
+      ]);
+      if (defaultResult.status === 'fulfilled') {
+        setStockData(trimDataForMobile(defaultResult.value));
+      } else {
+        throw defaultResult.reason;
+      }
+      if (aggressiveResult.status === 'fulfilled') {
+        setStockDataV2(trimDataForMobile(aggressiveResult.value));
+      } else {
+        setStockDataV2(null);
+        console.error('激进策略数据加载失败:', aggressiveResult.reason);
+      }
     } catch (e) {
       alert(e.message || '获取数据失败，请确保后端服务已启动');
     }
@@ -182,11 +207,37 @@ function HomePage() {
     try {
       const data = await apiFetchStockData(targetCode, startDate, endDate, rsiPeriod);
       setStockData(trimDataForMobile(data));
+      setStockDataV2(null);
     } catch (e) {
       alert(e.message || '获取数据失败，请确保后端服务已启动');
     }
     setLoading(false);
   }, [symbol, startDate, endDate, rsiPeriod]);
+
+  const fetchV2Data = async (code = symbol) => {
+    if (!code) {
+      alert('请先获取股票数据');
+      return;
+    }
+    if (stockDataV2) return;
+    setLoading(true);
+    try {
+      const data = await apiFetchExperimentalStock(code, startDate, endDate, rsiPeriod);
+      setStockDataV2(trimDataForMobile(data));
+    } catch (e) {
+      alert(e.message || '获取K线图2数据失败');
+    }
+    setLoading(false);
+  };
+
+  const handleChartChange = (chart) => {
+    setActiveChart(chart);
+    if (chart === 'kline2') {
+      fetchV2Data();
+    }
+  };
+
+  const getActiveStockData = () => activeChart === 'kline2' ? stockDataV2 : stockData;
 
   const runBacktest = async () => {
     if (!isAuthenticated) {
@@ -229,9 +280,12 @@ function HomePage() {
       );
       case 'signals': return <WatchlistSignals onStockSelect={handleStockSelectFromDao} />;
       case 'backtest': return <EquityChart backtestResult={backtestResult} stockData={stockData} symbol={symbol} />;
-      default: return <KlineChart stockData={stockData} symbol={symbol} />;
+      case 'kline2': return <KlineChart stockData={stockDataV2} symbol={symbol} titleSuffix="（激进策略）" showLatestInfo hideLegendItems={['K线', 'MACD柱']} />;
+      default: return <KlineChart stockData={stockData} symbol={symbol} hideLegendItems={['K线', 'MACD柱']} />;
     }
   };
+
+  const activeStockData = getActiveStockData();
 
   if (authLoading) {
     return (
@@ -264,12 +318,14 @@ function HomePage() {
               认知之道
             </button>
           )}
-          <button
-            className={`nav-tab ${activePage === 'hotspot' ? 'active' : ''}`}
-            onClick={() => setActivePage('hotspot')}
-          >
-            热点洞察
-          </button>
+          {hasHotspotAccess && (
+            <button
+              className={`nav-tab ${activePage === 'hotspot' ? 'active' : ''}`}
+              onClick={() => setActivePage('hotspot')}
+            >
+              热点洞察
+            </button>
+          )}
           <button
             className={`nav-tab ${activePage === 'shu' ? 'active' : ''}`}
             onClick={() => setActivePage('shu')}
@@ -355,15 +411,18 @@ function HomePage() {
                    >
                      开通会员
                    </Link>
-                   {(hasRole('admin') || hasRole('super_admin')) && (
-                     <Link
-                       to="/admin"
-                       className="user-dropdown-item"
-                       onClick={() => setShowUserMenu(false)}
-                     >
-                       管理后台
-                     </Link>
-                   )}
+                    {(hasRole('admin') || hasRole('super_admin')) && (
+                      <>
+                        <Link
+                          to="/admin"
+                          className="user-dropdown-item"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          管理后台
+                        </Link>
+                      </>
+                    )}
+
                    <button
                       onClick={() => { logout(); setShowUserMenu(false); navigate('/login'); }}
                       className="user-dropdown-item text-danger"
@@ -393,20 +452,23 @@ function HomePage() {
 
           <div className="chart-section">
             <div className="chart-tabs">
-              <button className={`tab ${activeChart === 'kline' ? 'active' : ''}`} onClick={() => setActiveChart('kline')}>
-                K线图
+              <button className={`tab ${activeChart === 'kline' ? 'active' : ''}`} onClick={() => handleChartChange('kline')}>
+                默认策略
               </button>
-              <button className={`tab ${activeChart === 'rsi' ? 'active' : ''}`} onClick={() => setActiveChart('rsi')}>
+              <button className={`tab ${activeChart === 'kline2' ? 'active' : ''}`} onClick={() => handleChartChange('kline2')}>
+                激进策略
+              </button>
+              <button className={`tab ${activeChart === 'rsi' ? 'active' : ''}`} onClick={() => handleChartChange('rsi')}>
                 RSI
               </button>
-              <button className={`tab ${activeChart === 'kdj' ? 'active' : ''}`} onClick={() => setActiveChart('kdj')}>
+              <button className={`tab ${activeChart === 'kdj' ? 'active' : ''}`} onClick={() => handleChartChange('kdj')}>
                 KDJ
               </button>
-              <button className={`tab ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => setActiveChart('signals')}>
+              <button className={`tab ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => handleChartChange('signals')}>
                 信号扫描
               </button>
               {backtestResult && (
-                <button className={`tab ${activeChart === 'backtest' ? 'active' : ''}`} onClick={() => setActiveChart('backtest')}>
+                <button className={`tab ${activeChart === 'backtest' ? 'active' : ''}`} onClick={() => handleChartChange('backtest')}>
                   权益曲线
                 </button>
               )}
@@ -426,7 +488,7 @@ function HomePage() {
             <div className="chart-container">
               {activeChart === 'signals' ? (
                 renderChart()
-              ) : !stockData ? (
+              ) : !activeStockData ? (
                 <div className="empty-state">
                   <div className="empty-state-icon">📊</div>
                   <p className="empty-state-text">等待数据加载</p>
@@ -445,7 +507,7 @@ function HomePage() {
           <div className="sidebar">
             <div className="sidebar-tabs">
               <button className={`sidebar-tab ${activeTab === 'signals' ? 'active' : ''}`} onClick={() => setActiveTab('signals')}>
-                买卖信号 ({stockData?.summary?.buy_signals || 0}/{stockData?.summary?.sell_signals || 0})
+                买卖信号 ({activeStockData?.summary?.buy_signals || 0}/{activeStockData?.summary?.sell_signals || 0})
               </button>
               <button className={`sidebar-tab ${activeTab === 'backtest' ? 'active' : ''}`} onClick={() => setActiveTab('backtest')}>
                 回测结果
@@ -453,7 +515,7 @@ function HomePage() {
             </div>
 
             <div className="sidebar-content">
-              {activeTab === 'signals' ? <SignalPanel stockData={stockData} /> : <BacktestPanel backtestResult={backtestResult} />}
+              {activeTab === 'signals' ? <SignalPanel stockData={activeStockData} /> : <BacktestPanel backtestResult={backtestResult} />}
             </div>
           </div>
         </div>

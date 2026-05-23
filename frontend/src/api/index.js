@@ -282,3 +282,32 @@ export async function refreshHotspotCache(cacheType = null) {
   if (!data.success) throw new Error(data.message);
   return data;
 }
+
+export async function fetchExperimentalStock(symbol, startDate, endDate, rsiPeriod = 14) {
+  const res = await fetchWithAuth(
+    `${API_BASE}/experimental/stock/${symbol}?start_date=${startDate}&end_date=${endDate}&rsi_period=${rsiPeriod}`
+  );
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function runExperimentalBacktest(symbol, startDate, endDate, config = {}) {
+  const res = await fetchWithAuth(`${API_BASE}/experimental/backtest`, {
+    method: 'POST',
+    body: JSON.stringify({ symbol, start_date: startDate, end_date: endDate, config }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function runStrategyCompare(symbol, startDate, endDate, config = {}) {
+  const res = await fetchWithAuth(`${API_BASE}/experimental/compare`, {
+    method: 'POST',
+    body: JSON.stringify({ symbol, start_date: startDate, end_date: endDate, config }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}

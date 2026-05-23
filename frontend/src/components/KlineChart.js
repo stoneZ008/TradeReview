@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { detectMACDDivergence } from '../utils/divergence';
 
-export default function KlineChart({ stockData, symbol }) {
+export default function KlineChart({ stockData, symbol, titleSuffix = '', showLatestInfo = false, hideLegendItems = [] }) {
   const [showSupport, setShowSupport] = useState(false);
   const [showResistance, setShowResistance] = useState(false);
 
@@ -45,6 +45,11 @@ export default function KlineChart({ stockData, symbol }) {
   // 最新收盘价
   const lastClose = data.length > 0 ? data[data.length - 1].close : 0;
   const lastDate = data.length > 0 ? data[data.length - 1].date : '';
+  const prevClose = data.length > 1 ? data[data.length - 2].close : 0;
+  const latestPctChange = prevClose > 0 ? ((lastClose - prevClose) / prevClose * 100) : 0;
+  const latestInfoText = showLatestInfo
+    ? `收盘 ${lastClose.toFixed(2)} ${latestPctChange >= 0 ? '+' : ''}${latestPctChange.toFixed(2)}%`
+    : '';
 
   const buyPoints = data
     .filter((d) => d.signal === 1 && d.buy_score >= 0.08)
@@ -74,16 +79,19 @@ export default function KlineChart({ stockData, symbol }) {
   const { topDivergence, bottomDivergence } = detectMACDDivergence(data);
 
   const stockNameWithSymbol = stockData.name ? stockData.name + ' (' + symbol + ')' : symbol;
-  const titleText = stockNameWithSymbol;
+  const titleText = stockNameWithSymbol + (latestInfoText ? ` (${latestInfoText})` : '');
 
   let signalTag = '';
   let signalColor = '';
   let signalBg = '';
+  const adviceText = stockData.trade_advice
+    ? ` | 止损 ${stockData.trade_advice.stop_loss} 止盈 ${stockData.trade_advice.take_profit} 加仓 ${stockData.trade_advice.add_price}`
+    : '';
   for (let i = data.length - 1; i >= 0; i--) {
     if (data[i].signal !== 0) {
       const dateStr = data[i].date.replace(/-/g, '.');
       if (data[i].signal === 1) {
-        signalTag = dateStr + ' 出现买点';
+        signalTag = dateStr + ' 出现买点' + adviceText;
         signalColor = '#fff';
         signalBg = '#ef4444';
       } else {
@@ -97,7 +105,7 @@ export default function KlineChart({ stockData, symbol }) {
 
   const titleItems = [
     {
-      text: '买卖信号参考',
+      text: `买卖信号参考${titleSuffix}`,
       left: 'center',
       top: 2,
       textStyle: { color: '#a78bfa', fontSize: 20, fontWeight: 'bold' },
@@ -128,6 +136,8 @@ export default function KlineChart({ stockData, symbol }) {
       },
     });
   }
+
+  const legendData = ['K线', 'MA5', 'MA10', 'MA20', 'DIF', 'DEA', 'MACD柱'].filter((item) => !hideLegendItems.includes(item));
 
   const option = {
     backgroundColor: '#0f0f1a',
@@ -171,7 +181,7 @@ export default function KlineChart({ stockData, symbol }) {
       },
     },
     legend: {
-      data: ['K线', 'MA5', 'MA10', 'MA20', 'DIF', 'DEA', 'MACD柱'],
+      data: legendData,
       textStyle: { color: '#a0a0a0' },
       top: signalTag ? 40 : 0,
     },
