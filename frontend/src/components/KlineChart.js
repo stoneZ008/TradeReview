@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { detectMACDDivergence } from '../utils/divergence';
 
 export default function KlineChart({ stockData, symbol, titleSuffix = '', showLatestInfo = false, hideLegendItems = [] }) {
   const [showSupport, setShowSupport] = useState(false);
   const [showResistance, setShowResistance] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   if (!stockData?.data) return null;
 
@@ -107,29 +114,29 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
     {
       text: `买卖信号参考${titleSuffix}`,
       left: 'center',
-      top: 2,
-      textStyle: { color: '#a78bfa', fontSize: 20, fontWeight: 'bold' },
+      top: isMobile ? 4 : 2,
+      textStyle: { color: '#a78bfa', fontSize: isMobile ? 14 : 20, fontWeight: 'bold' },
     },
     {
       text: titleText,
-      left: '10%',
-      top: signalTag ? 34 : 36,
-      textStyle: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+      left: isMobile ? 8 : '10%',
+      top: signalTag ? (isMobile ? 28 : 34) : (isMobile ? 28 : 36),
+      textStyle: { color: '#fff', fontSize: isMobile ? 11 : 14, fontWeight: 'bold', width: isMobile ? 260 : null, overflow: 'truncate' },
     },
   ];
   if (signalTag) {
-    titleItems.push({
+      titleItems.push({
       text: '{tag|' + signalTag + '}',
-      left: '10%',
-      top: 58,
+      left: isMobile ? 8 : '10%',
+      top: isMobile ? 48 : 58,
       textStyle: {
         rich: {
           tag: {
             backgroundColor: signalBg,
             color: signalColor,
-            fontSize: 14,
+            fontSize: isMobile ? 10 : 14,
             fontWeight: 'bold',
-            padding: [4, 10],
+            padding: isMobile ? [3, 6] : [4, 10],
             borderRadius: 4,
           },
         },
@@ -345,16 +352,16 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
       {
         query: { maxWidth: 768 },
         option: {
-          title: [{ textStyle: { fontSize: 16 } }, { textStyle: { fontSize: 11 } }],
-          legend: { top: signalTag ? 48 : 8, textStyle: { fontSize: 10 } },
+          title: [{ textStyle: { fontSize: 14 } }, { textStyle: { fontSize: 11 } }],
+          legend: { show: false },
           grid: [
-            { left: '8%', right: '3%', top: signalTag ? '22%' : '15%', height: '45%' },
-            { left: '8%', right: '3%', top: '64%', height: '14%' },
-            { left: '8%', right: '3%', top: '82%', height: '12%' },
+            { left: 42, right: 12, top: signalTag ? 78 : 58, height: 260 },
+            { left: 42, right: 12, top: 350, height: 82 },
+            { left: 42, right: 12, top: 452, height: 58 },
           ],
           dataZoom: [
-            { type: 'inside', start: 30, end: 100 },
-            { type: 'slider', height: 24, bottom: 0 },
+            { type: 'inside', start: 35, end: 100 },
+            { type: 'slider', height: 18, bottom: 8 },
           ],
           series: [
             { markPoint: { symbolSize: 28, label: { fontSize: 9 } } },
@@ -373,13 +380,13 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
   return (
     <div style={{ position: 'relative', height: '100%' }}>
       <div
-        style={{ position: 'absolute', top: 8, right: 20, zIndex: 10, display: 'flex', gap: '8px' }}
+        style={{ position: 'absolute', top: isMobile ? 30 : 8, right: isMobile ? 8 : 20, zIndex: 10, display: 'flex', gap: isMobile ? '4px' : '8px' }}
       >
         <button
           onClick={() => setShowSupport(!showSupport)}
           style={{
-            padding: '4px 12px',
-            fontSize: '12px',
+            padding: isMobile ? '3px 8px' : '4px 12px',
+            fontSize: isMobile ? '11px' : '12px',
             backgroundColor: showSupport ? '#22c55e' : 'rgba(34, 197, 94, 0.2)',
             color: showSupport ? '#fff' : '#22c55e',
             border: '1px solid #22c55e',
@@ -393,8 +400,8 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
         <button
           onClick={() => setShowResistance(!showResistance)}
           style={{
-            padding: '4px 12px',
-            fontSize: '12px',
+            padding: isMobile ? '3px 8px' : '4px 12px',
+            fontSize: isMobile ? '11px' : '12px',
             backgroundColor: showResistance ? '#ef4444' : 'rgba(239, 68, 68, 0.2)',
             color: showResistance ? '#fff' : '#ef4444',
             border: '1px solid #ef4444',

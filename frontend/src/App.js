@@ -19,6 +19,7 @@ import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SubscriptionPage from './pages/SubscriptionPage';
+import MobileTestPage from './pages/MobileTestPage';
 import { fetchStockData as apiFetchStockData, fetchExperimentalStock as apiFetchExperimentalStock, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist } from './api';
 
 function PrivateRoute({ children }) {
@@ -88,6 +89,7 @@ function HomePage() {
   const [backtestResult, setBacktestResult] = useState(null);
   const [watchlist, setWatchlist] = useState([]);
   const [rsiPeriod, setRsiPeriod] = useState(14);
+  const chartSectionRef = useRef(null);
   const userMenuRef = useRef(null);
 
   React.useEffect(() => {
@@ -125,6 +127,9 @@ function HomePage() {
     setSymbol(stock.code);
     setInputSymbol(stock.code);
     fetchDataForCode(stock.code);
+    if (isMobileView()) {
+      chartSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const handleStockSelectFromDao = (code) => {
@@ -450,7 +455,7 @@ function HomePage() {
         <div className="main-content">
           <Watchlist watchlist={watchlist} onSelect={selectWatchStock} onRemove={handleRemoveFromWatchlist} />
 
-          <div className="chart-section">
+          <div className="chart-section" ref={chartSectionRef}>
             <div className="chart-tabs">
               <button className={`tab ${activeChart === 'kline' ? 'active' : ''}`} onClick={() => handleChartChange('kline')}>
                 默认策略
@@ -464,7 +469,7 @@ function HomePage() {
               <button className={`tab ${activeChart === 'kdj' ? 'active' : ''}`} onClick={() => handleChartChange('kdj')}>
                 KDJ
               </button>
-              <button className={`tab ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => handleChartChange('signals')}>
+              <button className={`tab mobile-hidden ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => handleChartChange('signals')}>
                 信号扫描
               </button>
               {backtestResult && (
@@ -533,8 +538,9 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
             <Route path="/subscription" element={<PrivateRoute><SubscriptionPage /></PrivateRoute>} />
-            <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />
-            <Route path="/" element={<HomePage />} />
+             <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />
+             <Route path="/mobile-test" element={<MobileTestPage />} />
+             <Route path="/" element={<HomePage />} />
          </Routes>
       </Router>
     </AuthProvider>
