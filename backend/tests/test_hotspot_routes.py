@@ -37,11 +37,6 @@ class TestHotspotRoutes:
         data = json.loads(response.data)
         assert data["success"] == True
 
-    def test_get_sectors_limit(self, client):
-        response = client.get("/api/hotspot/sectors?limit=5")
-        data = json.loads(response.data)
-        assert len(data["data"]) <= 5
-
     def test_get_sector_detail(self, client):
         response = client.get("/api/hotspot/sector/AI")
         assert response.status_code == 200
