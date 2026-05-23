@@ -6,6 +6,18 @@ const sampleWatchlist = [
   { code: '600519', name: '贵州茅台' },
   { code: '000001', name: '平安银行' },
   { code: '300750', name: '宁德时代' },
+  { code: '601318', name: '中国平安' },
+  { code: '600036', name: '招商银行' },
+  { code: '000858', name: '五粮液' },
+  { code: '002594', name: '比亚迪' },
+  { code: '600030', name: '中信证券' },
+  { code: '601888', name: '中国中免' },
+  { code: '600276', name: '恒瑞医药' },
+  { code: '300059', name: '东方财富' },
+  { code: '600887', name: '伊利股份' },
+  { code: '002415', name: '海康威视' },
+  { code: '601398', name: '工商银行' },
+  { code: '600900', name: '长江电力' },
   { code: 'AAPL', name: 'Apple' },
 ];
 
@@ -78,7 +90,7 @@ export default function MobileTestPage() {
             <div className="legend-item"><div className="legend-dot" style={{ background: '#3b82f6' }}></div><span>S 卖出</span></div>
           </div>
           <div className="chart-container">
-            <KlineChart stockData={stockData} symbol={stock.code} hideLegendItems={['K线', 'MACD柱']} />
+            <KlineChart stockData={stockData} symbol={stock.code} hideLegendItems={['K线', 'MACD柱']} forceMobile />
           </div>
         </div>
         <div className="sidebar">

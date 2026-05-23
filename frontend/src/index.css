@@ -280,6 +280,11 @@ body {
   font-size: 14px;
 }
 
+.watchlist-mobile-header,
+.watchlist-mobile-grid {
+  display: none;
+}
+
 .input-group {
   display: flex;
   align-items: center;
@@ -1731,6 +1736,194 @@ body {
    移动端响应式适配 (核心版)
    ======================================== */
 
+.mobile-test-page {
+  max-width: 430px;
+  min-height: 100vh;
+  margin: 0 auto;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.mobile-test-page .app {
+  height: auto;
+}
+
+.mobile-test-page .header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: 8px 10px;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.mobile-test-page .logo {
+  gap: 8px;
+}
+
+.mobile-test-page .logo-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+}
+
+.mobile-test-page .logo-text {
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.mobile-test-page .controls {
+  order: 3;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.mobile-test-page .controls .input-group {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobile-test-page .controls label {
+  display: none;
+}
+
+.mobile-test-page .controls .input,
+.mobile-test-page .controls .btn {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.mobile-test-page .main-content {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  overflow: visible;
+  min-height: auto;
+}
+
+.mobile-test-page .watchlist-sidebar {
+  order: 1;
+  display: block;
+  width: auto;
+  max-height: none;
+  margin: 6px 8px 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.mobile-test-page .watchlist-header,
+.mobile-test-page .watchlist-tabs,
+.mobile-test-page .watchlist-content,
+.mobile-test-page .chart-legend,
+.mobile-test-page .sidebar {
+  display: none;
+}
+
+.mobile-test-page .watchlist-mobile-header {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mobile-test-page .watchlist-mobile-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mobile-test-page .watchlist-mobile-card {
+  display: flex;
+  min-width: 0;
+    height: 40px;
+    padding: 4px 4px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.mobile-test-page .watchlist-mobile-name {
+  width: 100%;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-test-page .watchlist-mobile-code {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.mobile-test-page .chart-section {
+  order: 2;
+  width: 100%;
+  min-height: calc(100vh - 240px);
+  padding: 6px 8px 8px;
+}
+
+.mobile-test-page .chart-tabs {
+  gap: 6px;
+  padding: 6px 0;
+  overflow-x: auto;
+  border-bottom: none;
+  background: transparent;
+}
+
+.mobile-test-page .chart-tabs .tab {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.mobile-test-page .chart-tabs .tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.mobile-test-page .mobile-hidden {
+  display: none !important;
+}
+
+.mobile-test-page .chart-container {
+  flex: none;
+  height: 430px;
+  min-height: 430px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
 @media (max-width: 768px) {
   body {
     overflow-x: hidden;
@@ -1846,74 +2039,83 @@ body {
 
   .watchlist-sidebar {
     order: 1;
-    display: flex;
+    display: block;
     width: auto;
-    max-height: 78px;
+    max-height: none;
     margin: 6px 8px 0;
+    padding: 8px;
     border: 1px solid var(--border);
     border-radius: 10px;
     overflow: hidden;
+    background: var(--bg-secondary);
   }
 
-  .watchlist-header {
+  .watchlist-header,
+  .watchlist-tabs,
+  .watchlist-content {
     display: none;
   }
 
-  .watchlist-tabs {
-    flex: 0 0 84px;
-    flex-direction: column;
+  .watchlist-mobile-header {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
   }
 
-  .watchlist-tab {
-    min-height: 38px;
-    padding: 5px;
-    font-size: 11px;
-  }
-
-  .watchlist-content {
-    display: flex;
+  .watchlist-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 6px;
-    -webkit-overflow-scrolling: touch;
   }
 
-  .watchlist-item-card {
-    flex: 0 0 104px;
-    min-height: 48px;
-    margin-bottom: 0;
-    padding: 6px 8px;
-    align-items: flex-start;
+  .watchlist-mobile-card {
+  display: flex;
+  min-width: 0;
+  height: 40px;
+    padding: 5px 4px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    cursor: pointer;
   }
 
-  .watchlist-item-card:hover {
-    transform: none;
-  }
-
-  .watchlist-code {
-    font-size: 13px;
-  }
-
-  .watchlist-name {
+  .watchlist-mobile-name {
+    width: 100%;
+    overflow: hidden;
+    color: var(--text-primary);
     font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .btn-delete-watchlist {
-    width: 22px;
-    height: 22px;
-    flex: 0 0 auto;
+  .watchlist-mobile-code {
+    margin-top: 2px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    line-height: 1;
   }
 
-  .watchlist-empty {
-    min-width: 120px;
-    padding: 18px 10px;
+  .watchlist-mobile-empty {
+    grid-column: 1 / -1;
+    padding: 12px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-align: center;
   }
 
   .chart-section {
     order: 2;
     width: 100%;
-    min-height: calc(100vh - 170px);
+    min-height: calc(100vh - 240px);
     padding: 6px 8px 8px;
   }
 
@@ -1961,8 +2163,8 @@ body {
 
   .chart-container {
     flex: none;
-    height: 500px;
-    min-height: 500px;
+    height: 430px;
+    min-height: 430px;
     padding: 0;
     border: 1px solid var(--border);
     border-radius: 12px;

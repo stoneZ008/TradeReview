@@ -2,16 +2,17 @@ import React, { useEffect, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { detectMACDDivergence } from '../utils/divergence';
 
-export default function KlineChart({ stockData, symbol, titleSuffix = '', showLatestInfo = false, hideLegendItems = [] }) {
+export default function KlineChart({ stockData, symbol, titleSuffix = '', showLatestInfo = false, hideLegendItems = [], forceMobile = false }) {
   const [showSupport, setShowSupport] = useState(false);
   const [showResistance, setShowResistance] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(() => forceMobile || window.innerWidth <= 768);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => setIsMobile(forceMobile || window.innerWidth <= 768);
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [forceMobile]);
 
   if (!stockData?.data) return null;
 
@@ -135,9 +136,9 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           tag: {
             backgroundColor: signalBg,
             color: signalColor,
-            fontSize: isMobile ? 10 : 14,
+            fontSize: isMobile ? 14 : 14,
             fontWeight: 'bold',
-            padding: isMobile ? [3, 6] : [4, 10],
+            padding: isMobile ? [5, 10] : [4, 10],
             borderRadius: 4,
           },
         },
@@ -356,7 +357,7 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           title: [{ textStyle: { fontSize: 14 } }, { textStyle: { fontSize: 11 } }],
           legend: { show: false },
           grid: [
-            { left: 42, right: 12, top: signalTag ? 74 : 54, height: 400 },
+            { left: 42, right: 12, top: signalTag ? 70 : 50, height: 340 },
             { left: 42, right: 12, top: 0, height: 0 },
             { left: 42, right: 12, top: 0, height: 0 },
           ],
