@@ -69,8 +69,8 @@ export default function MobileTestPage() {
           <div className="chart-tabs">
             <button className="tab active">默认策略</button>
             <button className="tab">激进策略</button>
-            <button className="tab">RSI</button>
-            <button className="tab">KDJ</button>
+            <button className="tab mobile-hidden">RSI</button>
+            <button className="tab mobile-hidden">KDJ</button>
             <button className="tab mobile-hidden">信号扫描</button>
           </div>
           <div className="chart-legend">

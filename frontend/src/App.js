@@ -384,7 +384,7 @@ function HomePage() {
               ⭐ 加入自选
             </button>
 
-            <button className="btn btn-secondary" onClick={runBacktest} disabled={loading || !stockData}>
+            <button className="btn btn-secondary mobile-hidden" onClick={runBacktest} disabled={loading || !stockData}>
               运行回测
             </button>
           </div>
@@ -463,17 +463,17 @@ function HomePage() {
               <button className={`tab ${activeChart === 'kline2' ? 'active' : ''}`} onClick={() => handleChartChange('kline2')}>
                 激进策略
               </button>
-              <button className={`tab ${activeChart === 'rsi' ? 'active' : ''}`} onClick={() => handleChartChange('rsi')}>
+              <button className={`tab mobile-hidden ${activeChart === 'rsi' ? 'active' : ''}`} onClick={() => handleChartChange('rsi')}>
                 RSI
               </button>
-              <button className={`tab ${activeChart === 'kdj' ? 'active' : ''}`} onClick={() => handleChartChange('kdj')}>
+              <button className={`tab mobile-hidden ${activeChart === 'kdj' ? 'active' : ''}`} onClick={() => handleChartChange('kdj')}>
                 KDJ
               </button>
               <button className={`tab mobile-hidden ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => handleChartChange('signals')}>
                 信号扫描
               </button>
               {backtestResult && (
-                <button className={`tab ${activeChart === 'backtest' ? 'active' : ''}`} onClick={() => handleChartChange('backtest')}>
+                <button className={`tab mobile-hidden ${activeChart === 'backtest' ? 'active' : ''}`} onClick={() => handleChartChange('backtest')}>
                   权益曲线
                 </button>
               )}

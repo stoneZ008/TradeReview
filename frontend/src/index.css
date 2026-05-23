@@ -1745,9 +1745,9 @@ body {
     position: sticky;
     top: 0;
     z-index: 50;
-    padding: 10px 12px;
+    padding: 8px 10px;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     align-items: flex-start;
   }
 
@@ -1778,38 +1778,45 @@ body {
 
   .nav-tab {
     flex: 0 0 auto;
-    padding: 8px 12px;
-    font-size: 13px;
-    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 12px;
+    min-height: 30px;
   }
 
   .controls {
     order: 3;
     width: 100%;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
+    align-items: stretch;
   }
 
   .controls .input-group {
     align-items: stretch;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .controls .input-group:first-child {
-    grid-column: 1 / -1;
+    grid-column: auto;
+  }
+
+  .controls .input-group:nth-child(2),
+  .controls .input-group:nth-child(3) {
+    display: none;
   }
 
   .controls label {
-    font-size: 12px;
+    display: none;
   }
 
   .controls .input,
   .controls .input-sm,
   .controls .btn {
     width: 100%;
-    min-height: 40px;
+    min-height: 34px;
+    padding: 6px 10px;
     font-size: 13px;
   }
 
@@ -1841,42 +1848,42 @@ body {
     order: 1;
     display: flex;
     width: auto;
-    max-height: 178px;
-    margin: 10px 10px 0;
+    max-height: 78px;
+    margin: 6px 8px 0;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 10px;
     overflow: hidden;
   }
 
   .watchlist-header {
-    padding: 10px 12px;
-    font-size: 13px;
+    display: none;
   }
 
   .watchlist-tabs {
-    flex-shrink: 0;
+    flex: 0 0 84px;
+    flex-direction: column;
   }
 
   .watchlist-tab {
-    min-height: 36px;
-    padding: 8px;
-    font-size: 12px;
+    min-height: 38px;
+    padding: 5px;
+    font-size: 11px;
   }
 
   .watchlist-content {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 10px;
+    padding: 6px;
     -webkit-overflow-scrolling: touch;
   }
 
   .watchlist-item-card {
-    flex: 0 0 132px;
-    min-height: 66px;
+    flex: 0 0 104px;
+    min-height: 48px;
     margin-bottom: 0;
-    padding: 10px;
+    padding: 6px 8px;
     align-items: flex-start;
   }
 
@@ -1906,13 +1913,13 @@ body {
   .chart-section {
     order: 2;
     width: 100%;
-    min-height: calc(100vh - 320px);
-    padding: 10px;
+    min-height: calc(100vh - 170px);
+    padding: 6px 8px 8px;
   }
 
   .chart-tabs {
     gap: 6px;
-    padding: 8px 0;
+    padding: 6px 0;
     overflow-x: auto;
     border-bottom: none;
     background: transparent;
@@ -1921,9 +1928,9 @@ body {
 
   .chart-tabs .tab {
     flex: 0 0 auto;
-    min-height: 38px;
-    padding: 8px 12px;
-    font-size: 13px;
+    min-height: 30px;
+    padding: 5px 10px;
+    font-size: 12px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 999px;
@@ -1940,9 +1947,7 @@ body {
   }
 
   .chart-legend {
-    gap: 12px;
-    padding: 2px 0 8px;
-    font-size: 11px;
+    display: none;
   }
 
   .legend-item {
@@ -1956,8 +1961,8 @@ body {
 
   .chart-container {
     flex: none;
-    height: 560px;
-    min-height: 560px;
+    height: 500px;
+    min-height: 500px;
     padding: 0;
     border: 1px solid var(--border);
     border-radius: 12px;

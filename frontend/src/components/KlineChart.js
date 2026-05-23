@@ -17,6 +17,7 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
 
   const data = stockData.data;
   const dates = data.map((d) => d.date);
+  const mobileStartIndex = Math.max(dates.length - 30, 0);
   const candleData = data.map((d) => [d.open, d.close, d.low, d.high]);
 
   // 支撑位和压力位 markLine 配置
@@ -64,9 +65,9 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
       name: 'B',
       coord: [d.date, d.low],
       symbol: 'circle',
-      symbolSize: 20,
-      label: { show: true, formatter: 'B', color: '#fff', fontSize: 12, fontWeight: 'bold' },
-      itemStyle: { color: '#ef4444', borderColor: '#fff', borderWidth: 1 },
+      symbolSize: isMobile ? 34 : 20,
+      label: { show: true, formatter: 'B', color: '#fff', fontSize: isMobile ? 15 : 12, fontWeight: 'bold' },
+      itemStyle: { color: '#ef4444', borderColor: '#fff', borderWidth: isMobile ? 2 : 1 },
     }));
 
   const sellPoints = data
@@ -78,9 +79,9 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
       name: 'S',
       coord: [d.date, d.high],
       symbol: 'circle',
-      symbolSize: 20,
-      label: { show: true, formatter: 'S', color: '#fff', fontSize: 12, fontWeight: 'bold' },
-      itemStyle: { color: '#3b82f6', borderColor: '#fff', borderWidth: 1 },
+      symbolSize: isMobile ? 34 : 20,
+      label: { show: true, formatter: 'S', color: '#fff', fontSize: isMobile ? 15 : 12, fontWeight: 'bold' },
+      itemStyle: { color: '#3b82f6', borderColor: '#fff', borderWidth: isMobile ? 2 : 1 },
     }));
 
   const { topDivergence, bottomDivergence } = detectMACDDivergence(data);
@@ -98,11 +99,11 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
     if (data[i].signal !== 0) {
       const dateStr = data[i].date.replace(/-/g, '.');
       if (data[i].signal === 1) {
-        signalTag = dateStr + ' 出现买点' + adviceText;
+        signalTag = isMobile ? `${dateStr} 买点 强度${((data[i].buy_score || 0) * 100).toFixed(0)}%` : dateStr + ' 出现买点' + adviceText;
         signalColor = '#fff';
         signalBg = '#ef4444';
       } else {
-        signalTag = dateStr + ' 出现卖点';
+        signalTag = isMobile ? `${dateStr} 卖点 强度${((data[i].sell_score || 0) * 100).toFixed(0)}%` : dateStr + ' 出现卖点';
         signalColor = '#fff';
         signalBg = '#3b82f6';
       }
@@ -230,7 +231,7 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
       { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { show: false } },
       { scale: true, gridIndex: 2, splitLine: { show: false }, axisLabel: { show: false } },
     ],
-    dataZoom: [
+    dataZoom: isMobile ? [] : [
       { type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 },
       { type: 'slider', xAxisIndex: [0, 1, 2], bottom: 0, height: 20 },
     ],
@@ -355,22 +356,32 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           title: [{ textStyle: { fontSize: 14 } }, { textStyle: { fontSize: 11 } }],
           legend: { show: false },
           grid: [
-            { left: 42, right: 12, top: signalTag ? 78 : 58, height: 260 },
-            { left: 42, right: 12, top: 350, height: 82 },
-            { left: 42, right: 12, top: 452, height: 58 },
+            { left: 42, right: 12, top: signalTag ? 74 : 54, height: 400 },
+            { left: 42, right: 12, top: 0, height: 0 },
+            { left: 42, right: 12, top: 0, height: 0 },
           ],
-          dataZoom: [
-            { type: 'inside', start: 35, end: 100 },
-            { type: 'slider', height: 18, bottom: 8 },
+          xAxis: [
+            { min: mobileStartIndex, max: dates.length - 1, axisLabel: { show: true, color: '#a0a0a0', fontSize: 10 } },
+            { show: false },
+            { show: false },
           ],
+          yAxis: [
+            { axisLabel: { color: '#a0a0a0', fontSize: 10 } },
+            { show: false },
+            { show: false },
+          ],
+          dataZoom: [],
           series: [
-            { markPoint: { symbolSize: 28, label: { fontSize: 9 } } },
+            { markPoint: { symbolSize: 34, label: { fontSize: 15 } } },
             { lineStyle: { width: 1 } },
             { lineStyle: { width: 1 } },
             { lineStyle: { width: 1 } },
-            {},
-            {},
-            {},
+            { lineStyle: { width: 0 }, itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { lineStyle: { width: 0 }, itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { lineStyle: { width: 0 }, itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { lineStyle: { width: 0 }, itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
           ],
         },
       },
