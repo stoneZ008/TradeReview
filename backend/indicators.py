@@ -114,8 +114,8 @@ def calculate_ma_cross(df):
     
     # 金叉/死叉检测
     ma5_ma10_cross = ma5 > ma10
-    golden_cross = ma5_ma10_cross & (~ma5_ma10_cross.shift(1).fillna(False))  # 金叉
-    death_cross = (~ma5_ma10_cross) & ma5_ma10_cross.shift(1).fillna(False)  # 死叉
+    golden_cross = ma5_ma10_cross & (~ma5_ma10_cross.shift(1, fill_value=False))
+    death_cross = (~ma5_ma10_cross) & ma5_ma10_cross.shift(1, fill_value=False)
     
     return pd.DataFrame({
         'ma5': ma5,

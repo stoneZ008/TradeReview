@@ -438,8 +438,8 @@ def _fetch_yfinance(symbol, start_date, end_date):
                         continue
                     return pd.DataFrame()
                 hist = hist.reset_index()
-                hist.rename(columns={'Date': 'date', 'Open': 'open', 'High': 'high',
-                                     'Low': 'low', 'Close': 'close', 'Volume': 'volume'}, inplace=True)
+                hist = hist.rename(columns={'Date': 'date', 'Open': 'open', 'High': 'high',
+                                     'Low': 'low', 'Close': 'close', 'Volume': 'volume'})
                 hist['date'] = pd.to_datetime(hist['date'])
                 hist = hist.set_index('date')
                 hist['amount'] = hist['close'] * hist['volume'] / 1e6

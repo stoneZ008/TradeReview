@@ -3,13 +3,13 @@ flask-cors==4.0.0
 flask-jwt-extended==4.5.3
 flask-bcrypt==1.0.1
 python-dotenv==1.0.0
-pandas==2.1.4
-numpy==1.26.3
+pandas>=2.2.3
+numpy>=2.1
 gunicorn==21.2.0
 requests==2.31.0
 yfinance==0.2.38
 curl-cffi>=0.13.0
-akshare==1.10.23
+akshare==1.18.63
 APScheduler==3.10.4
 
 # Development tools
