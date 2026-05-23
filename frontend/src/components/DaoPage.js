@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import CompanyCard from './CompanyCard';
-
-const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000/api';
+import { useAuth } from '../context/AuthContext';
+import { API_BASE, fetchWithAuth } from '../api';
 
 function DaoPage({ onStockSelect }) {
+  const { hasRole } = useAuth();
+  const canEdit = hasRole('admin') || hasRole('super_admin');
   const [industryData, setIndustryData] = useState([]);
   const [expandedIndustries, setExpandedIndustries] = useState([]);
   const [selectedSubIndustry, setSelectedSubIndustry] = useState(null);
@@ -15,9 +17,9 @@ function DaoPage({ onStockSelect }) {
     name: '',
     role: '',
     feature: '',
-    desc: ''
+    desc: '',
   });
-  
+
   // 子行业表单状态
   const [showAddSubForm, setShowAddSubForm] = useState(false);
   const [showEditSubForm, setShowEditSubForm] = useState(false);
@@ -25,9 +27,9 @@ function DaoPage({ onStockSelect }) {
   const [selectedIndustryId, setSelectedIndustryId] = useState(null);
   const [newSubIndustry, setNewSubIndustry] = useState({
     name: '',
-    companies: []
+    companies: [],
   });
-  
+
   // 一级行业表单状态
   const [showAddIndustryForm, setShowAddIndustryForm] = useState(false);
   const [showEditIndustryForm, setShowEditIndustryForm] = useState(false);
@@ -36,7 +38,7 @@ function DaoPage({ onStockSelect }) {
     id: '',
     name: '',
     icon: '🏢',
-    children: []
+    children: [],
   });
 
   // 加载行业数据
@@ -46,13 +48,23 @@ function DaoPage({ onStockSelect }) {
 
   const fetchIndustries = async () => {
     try {
-      const res = await fetch(`${API_BASE}/industries`);
+      const res = await fetchWithAuth(`${API_BASE}/industries`);
       const data = await res.json();
       if (data.data) {
         setIndustryData(data.data);
         // 展开第一个行业
         if (data.data.length > 0) {
           setExpandedIndustries([data.data[0].id]);
+        }
+        // 更新当前选中的子行业数据
+        if (selectedSubIndustry) {
+          for (const industry of data.data) {
+            const found = industry.children.find((sub) => sub.id === selectedSubIndustry.id);
+            if (found) {
+              setSelectedSubIndustry(found);
+              break;
+            }
+          }
         }
       }
     } catch (e) {
@@ -62,10 +74,8 @@ function DaoPage({ onStockSelect }) {
 
   // 切换行业展开/折叠
   const toggleIndustry = (industryId) => {
-    setExpandedIndustries(prev => 
-      prev.includes(industryId) 
-        ? prev.filter(id => id !== industryId)
-        : [...prev, industryId]
+    setExpandedIndustries((prev) =>
+      prev.includes(industryId) ? prev.filter((id) => id !== industryId) : [...prev, industryId]
     );
   };
 
@@ -90,7 +100,7 @@ function DaoPage({ onStockSelect }) {
 
   // 添加公司
   const handleAddCompany = async () => {
-    if (!newCompany.codecode || !newCompany.namename) {
+    if (!newCompany.code || !newCompany.name) {
       alert('请填写公司代码和名称');
       return;
     }
@@ -100,21 +110,24 @@ function DaoPage({ onStockSelect }) {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/companies`, {
+      const res = await fetchWithAuth(`${API_BASE}/companies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sub_industry_id: selectedSubIndustry.id,
-          ...newCompany,
-          description: newCompany.desc
-        })
+          code: newCompany.code,
+          name: newCompany.name,
+          role: newCompany.role,
+          feature: newCompany.feature,
+          description: newCompany.desc,
+        }),
       });
       const data = await res.json();
-      
+
       if (data.success) {
         await fetchIndustries();
         setNewCompany({ code: '', name: '', role: '', feature: '', desc: '' });
         setShowAddForm(false);
+        setSelectedSubIndustry(null);
       } else {
         alert(data.error || '添加失败');
       }
@@ -141,16 +154,15 @@ function DaoPage({ onStockSelect }) {
     if (!editingCompany) return;
 
     try {
-      const res = await fetch(`${API_BASE}/companies/${editingCompany.id}`, {
+      const res = await fetchWithAuth(`${API_BASE}/companies/${editingCompany.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newCompany,
-          description: newCompany.desc
-        })
+          description: newCompany.desc,
+        }),
       });
       const data = await res.json();
-      
+
       if (data.success) {
         await fetchIndustries();
         setEditingCompany(null);
@@ -173,24 +185,22 @@ function DaoPage({ onStockSelect }) {
   };
 
   // 删除公司
-  const handleDeleteCompany = async (company) => {
+  const handleDeleteCompany = async (companyId) => {
+    const company = selectedSubIndustry?.companies?.find((c) => c.id === companyId);
+    if (!company) {
+      alert('未找到公司信息');
+      return;
+    }
     if (!confirm(`确定删除 ${company.name} 吗？`)) return;
 
     try {
-      const res = await fetch(`${API_BASE}/companies/${company.id}`, {
-        method: 'DELETE'
+      const res = await fetchWithAuth(`${API_BASE}/companies/${companyId}`, {
+        method: 'DELETE',
       });
       const data = await res.json();
-      
+
       if (data.success) {
         await fetchIndustries();
-        if (selectedSubIndustry?.id === company.sub_industry_id) {
-          const updatedSubIndustry = {
-            ...selectedSubIndustry,
-            companies: selectedSubIndustry.companies.filter(c => c.id !== company.id)
-          };
-          setSelectedSubIndustry(updatedSubIndustry);
-        }
       } else {
         alert(data.error || '删除失败');
       }
@@ -208,13 +218,12 @@ function DaoPage({ onStockSelect }) {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/industries`, {
+      const res = await fetchWithAuth(`${API_BASE}/industries`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newIndustry.name, icon: newIndustry.icon })
+        body: JSON.stringify({ name: newIndustry.name, icon: newIndustry.icon }),
       });
       const data = await res.json();
-      
+
       if (data.success) {
         await fetchIndustries();
         setNewIndustry({ id: '', name: '', icon: '🏢', children: [] });
@@ -246,13 +255,12 @@ function DaoPage({ onStockSelect }) {
     if (!editingIndustry) return;
 
     try {
-      const res = await fetch(`${API_BASE}/industries/${editingIndustry.id}`, {
+      const res = await fetchWithAuth(`${API_BASE}/industries/${editingIndustry.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newIndustry.name, icon: newIndustry.icon })
+        body: JSON.stringify({ name: newIndustry.name, icon: newIndustry.icon }),
       });
       const data = await res.json();
-      
+
       if (data.success) {
         await fetchIndustries();
         setEditingIndustry(null);
@@ -282,18 +290,17 @@ function DaoPage({ onStockSelect }) {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/sub-industries`, {
+      const res = await fetchWithAuth(`${API_BASE}/sub-industries`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ industry_id: industryId, name: newSubIndustry.name })
+        body: JSON.stringify({ industry_id: industryId, name: newSubIndustry.name }),
       });
       const data = await res.json();
-      
+
       if (data.success) {
         await fetchIndustries();
         setNewSubIndustry({ name: '', companies: [] });
         setShowAddSubForm(false);
-        
+
         // 展开该行业
         if (!expandedIndustries.includes(industryId)) {
           setExpandedIndustries([...expandedIndustries, industryId]);
@@ -326,24 +333,23 @@ function DaoPage({ onStockSelect }) {
     if (!editingSubIndustry) return;
 
     try {
-      const res = await fetch(`${API_BASE}/sub-industries/${editingSubIndustry.id}`, {
+      const res = await fetchWithAuth(`${API_BASE}/sub-industries/${editingSubIndustry.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newSubIndustry.name })
+        body: JSON.stringify({ name: newSubIndustry.name }),
       });
       const data = await res.json();
-      
+
       if (data.success) {
         await fetchIndustries();
-        
+
         // 更新选中的子行业
         if (selectedSubIndustry?.id === editingSubIndustry.id) {
           setSelectedSubIndustry({
             ...selectedSubIndustry,
-            name: newSubIndustry.name
+            name: newSubIndustry.name,
           });
         }
-        
+
         setEditingSubIndustry(null);
         setNewSubIndustry({ name: '', companies: [] });
         setShowEditSubForm(false);
@@ -369,8 +375,8 @@ function DaoPage({ onStockSelect }) {
       <div className="dao-sidebar">
         <div className="dao-sidebar-header">
           <span>📊 行业分类</span>
-          {!showAddIndustryForm && !showEditIndustryForm && (
-            <button 
+          {canEdit && !showAddIndustryForm && !showEditIndustryForm && (
+            <button
               className="btn-add-industry"
               onClick={() => {
                 setShowAddIndustryForm(true);
@@ -385,7 +391,7 @@ function DaoPage({ onStockSelect }) {
         </div>
         <div className="dao-sidebar-content">
           {/* 添加行业表单 */}
-          {showAddIndustryForm && (
+          {canEdit && showAddIndustryForm && (
             <div className="industry-form">
               <input
                 type="text"
@@ -401,13 +407,10 @@ function DaoPage({ onStockSelect }) {
                 placeholder="行业图标（emoji）"
                 className="industry-input icon-input"
               />
-              <button 
-                className="btn btn-save-industry"
-                onClick={handleAddIndustry}
-              >
+              <button className="btn btn-save-industry" onClick={handleAddIndustry}>
                 ✓
               </button>
-              <button 
+              <button
                 className="btn btn-cancel-industry"
                 onClick={() => {
                   setShowAddIndustryForm(false);
@@ -419,10 +422,10 @@ function DaoPage({ onStockSelect }) {
             </div>
           )}
 
-          {industryData.map(industry => (
+          {industryData.map((industry) => (
             <div key={industry.id} className="industry-group">
               {/* 编辑行业表单 */}
-              {showEditIndustryForm && editingIndustry?.id === industry.id && (
+              {canEdit && showEditIndustryForm && editingIndustry?.id === industry.id && (
                 <div className="industry-form edit-form">
                   <input
                     type="text"
@@ -438,22 +441,16 @@ function DaoPage({ onStockSelect }) {
                     placeholder="行业图标"
                     className="industry-input icon-input"
                   />
-                  <button 
-                    className="btn btn-save-industry"
-                    onClick={handleSaveIndustry}
-                  >
+                  <button className="btn btn-save-industry" onClick={handleSaveIndustry}>
                     ✓
                   </button>
-                  <button 
-                    className="btn btn-cancel-industry"
-                    onClick={handleCancelIndustry}
-                  >
+                  <button className="btn btn-cancel-industry" onClick={handleCancelIndustry}>
                     ✕
                   </button>
                 </div>
               )}
 
-              <div 
+              <div
                 className={`industry-item ${expandedIndustries.includes(industry.id) ? 'expanded' : ''}`}
                 onClick={() => toggleIndustry(industry.id)}
               >
@@ -463,19 +460,21 @@ function DaoPage({ onStockSelect }) {
                   <span className="industry-arrow">
                     {expandedIndustries.includes(industry.id) ? '▼' : '▶'}
                   </span>
-                  <button 
-                    className="btn-edit-industry"
-                    onClick={(e) => handleEditIndustry(industry, e)}
-                  >
-                    ✏️
-                  </button>
+                  {canEdit && (
+                    <button
+                      className="btn-edit-industry"
+                      onClick={(e) => handleEditIndustry(industry, e)}
+                    >
+                      ✏️
+                    </button>
+                  )}
                 </span>
               </div>
-              
+
               {expandedIndustries.includes(industry.id) && (
                 <div className="sub-industry-list">
-                  {industry.children.map(sub => (
-                    <div 
+                  {industry.children.map((sub) => (
+                    <div
                       key={sub.id}
                       className={`sub-industry-item ${selectedSubIndustry?.id === sub.id ? 'active' : ''}`}
                       onClick={() => selectSubIndustry(sub)}
@@ -483,33 +482,37 @@ function DaoPage({ onStockSelect }) {
                       <span className="sub-industry-name">{sub.name}</span>
                       <span className="sub-industry-actions">
                         <span className="sub-industry-count">{sub.companies?.length || 0}</span>
-                        <button 
-                          className="btn-edit-sub"
-                          onClick={(e) => handleEditSubIndustry(industry.id, sub, e)}
-                        >
-                          ✏️
-                        </button>
+                        {canEdit && (
+                          <button
+                            className="btn-edit-sub"
+                            onClick={(e) => handleEditSubIndustry(industry.id, sub, e)}
+                          >
+                            ✏️
+                          </button>
+                        )}
                       </span>
                     </div>
                   ))}
-                  
+
                   {/* 添加子行业按钮 */}
-                  {showAddSubForm && selectedIndustryId === industry.id && (
+                  {canEdit && showAddSubForm && selectedIndustryId === industry.id && (
                     <div className="sub-industry-form">
                       <input
                         type="text"
                         value={newSubIndustry.name}
-                        onChange={(e) => setNewSubIndustry({ ...newSubIndustry, name: e.target.value })}
+                        onChange={(e) =>
+                          setNewSubIndustry({ ...newSubIndustry, name: e.target.value })
+                        }
                         placeholder="输入子行业名称"
                         className="sub-industry-input"
                       />
-                      <button 
+                      <button
                         className="btn btn-save-sub"
                         onClick={() => handleAddSubIndustry(industry.id)}
                       >
                         ✓
                       </button>
-                      <button 
+                      <button
                         className="btn btn-cancel-sub"
                         onClick={() => {
                           setShowAddSubForm(false);
@@ -520,9 +523,9 @@ function DaoPage({ onStockSelect }) {
                       </button>
                     </div>
                   )}
-                  
-                  {!(showAddSubForm && selectedIndustryId === industry.id) && (
-                    <button 
+
+                  {canEdit && !(showAddSubForm && selectedIndustryId === industry.id) && (
+                    <button
                       className="btn-add-sub"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -544,28 +547,22 @@ function DaoPage({ onStockSelect }) {
       {/* 右侧：公司卡片列表 */}
       <div className="dao-content">
         <div className="dao-content-header">
-          <h2>
-            {selectedSubIndustry 
-              ? `${selectedSubIndustry.name} 龙头公司`
-              : '请选择行业分类'
-            }
-          </h2>
-          {selectedSubIndustry && (
-            <button 
-              className="btn btn-add-company"
-              onClick={() => setShowAddForm(!showAddForm)}
-            >
+          <h2>{selectedSubIndustry ? `${selectedSubIndustry.name} 龙头公司` : '请选择行业分类'}</h2>
+          {selectedSubIndustry && canEdit && (
+            <button className="btn btn-add-company" onClick={() => setShowAddForm(!showAddForm)}>
               {showAddForm ? '取消' : '+ 添加公司'}
             </button>
           )}
         </div>
 
         {/* 编辑公司表单 */}
-        {showEditForm && (
+        {canEdit && showEditForm && (
           <div className="add-company-form edit-form">
             <div className="form-header">
               <h3>编辑公司</h3>
-              <button className="btn-close" onClick={handleCancelEdit}>✕</button>
+              <button className="btn-close" onClick={handleCancelEdit}>
+                ✕
+              </button>
             </div>
             <div className="form-row">
               <div className="form-group">
@@ -630,7 +627,7 @@ function DaoPage({ onStockSelect }) {
         )}
 
         {/* 添加公司表单 */}
-        {showAddForm && (
+        {canEdit && showAddForm && (
           <div className="add-company-form">
             <div className="form-row">
               <div className="form-group">
@@ -696,22 +693,14 @@ function DaoPage({ onStockSelect }) {
 
         <div className="dao-content-body">
           <div className="company-grid">
-            {getCurrentCompanies().map(company => (
+            {getCurrentCompanies().map((company) => (
               <div key={company.code} className="company-card-wrapper">
-                <CompanyCard 
+                <CompanyCard
                   company={company}
                   onSelect={handleCompanySelect}
                   onEdit={handleEditCompany}
+                  onDelete={handleDeleteCompany}
                 />
-                <button 
-                  className="btn-delete-company"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteCompany(company);
-                  }}
-                >
-                  ✕
-                </button>
               </div>
             ))}
           </div>

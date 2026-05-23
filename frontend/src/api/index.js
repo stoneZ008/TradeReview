@@ -2,8 +2,168 @@ const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localh
 
 export { API_BASE };
 
-export async function fetchStockData(symbol, startDate, endDate) {
-  const res = await fetch(`${API_BASE}/stock/${symbol}?start_date=${startDate}&end_date=${endDate}`);
+export function getAuthToken() {
+  return localStorage.getItem('auth_token');
+}
+
+export function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem('auth_token', token);
+  } else {
+    localStorage.removeItem('auth_token');
+  }
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function fetchWithAuth(url, options = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders(),
+    ...options.headers,
+  };
+  const res = await fetch(url, { ...options, headers });
+
+  if (res.status === 401 || res.status === 403) {
+    const resClone = res.clone();
+    const data = await resClone.json().catch(() => ({}));
+
+    if (!getAuthToken()) {
+      // 未登录状态，直接跳转到登录页（只提示一次）
+      alert('请先登录后再使用此功能');
+      // 创建一个 never-resolving promise 来阻止后续代码执行
+      await new Promise(() => {
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 100);
+      });
+    } else if (data.error) {
+      alert(data.error);
+      throw new Error(data.error);
+    }
+  }
+
+  return res;
+}
+
+export async function register(username, email, password) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, email, password }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function login(username, password) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function getProfile() {
+  const res = await fetchWithAuth(`${API_BASE}/auth/profile`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function updateProfile(username, email) {
+  const res = await fetchWithAuth(`${API_BASE}/auth/profile`, {
+    method: 'PUT',
+    body: JSON.stringify({ username, email }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function changePassword(oldPassword, newPassword) {
+  const res = await fetchWithAuth(`${API_BASE}/auth/change-password`, {
+    method: 'POST',
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function getPlans() {
+  const res = await fetch(`${API_BASE}/billing/plans`);
+  const data = await res.json();
+  return data.data || [];
+}
+
+export async function getMySubscription() {
+  const res = await fetchWithAuth(`${API_BASE}/billing/my-subscription`);
+  const data = await res.json();
+  return data;
+}
+
+export async function adminGetUsers() {
+  const res = await fetchWithAuth(`${API_BASE}/admin/users`);
+  const data = await res.json();
+  return data.data || [];
+}
+
+export async function adminAssignSubscription(userId, planName, isYearly = false) {
+  const res = await fetchWithAuth(`${API_BASE}/admin/users/${userId}/subscription`, {
+    method: 'PUT',
+    body: JSON.stringify({ plan_name: planName, is_yearly: isYearly }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function adminAssignRole(userId, roleName) {
+  const res = await fetchWithAuth(`${API_BASE}/admin/users/${userId}/roles`, {
+    method: 'PUT',
+    body: JSON.stringify({ role_name: roleName }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function adminCreateUser(username, email, password) {
+  const res = await fetchWithAuth(`${API_BASE}/admin/users`, {
+    method: 'POST',
+    body: JSON.stringify({ username, email, password }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function adminGetAuditLogs() {
+  const res = await fetchWithAuth(`${API_BASE}/admin/audit-logs`);
+  const data = await res.json();
+  return data.data || [];
+}
+
+export async function adminCleanLoginLogs() {
+  const res = await fetchWithAuth(`${API_BASE}/admin/audit-logs/clean-login`, {
+    method: 'DELETE',
+  });
+  const data = await res.json();
+  return data;
+}
+
+export async function fetchStockData(symbol, startDate, endDate, rsiPeriod = 14) {
+  const res = await fetchWithAuth(
+    `${API_BASE}/stock/${symbol}?start_date=${startDate}&end_date=${endDate}&rsi_period=${rsiPeriod}`
+  );
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
@@ -19,13 +179,12 @@ export async function runBacktest(symbol, startDate, endDate, config = {}) {
       commission_rate: 0.001,
       buy_threshold: 0.08,
       sell_threshold: 0.12,
-      ...config
-    }
+      ...config,
+    },
   };
-  const res = await fetch(`${API_BASE}/backtest`, {
+  const res = await fetchWithAuth(`${API_BASE}/backtest`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -33,16 +192,15 @@ export async function runBacktest(symbol, startDate, endDate, config = {}) {
 }
 
 export async function loadWatchlist() {
-  const res = await fetch(`${API_BASE}/watchlist`);
+  const res = await fetchWithAuth(`${API_BASE}/watchlist`);
   const data = await res.json();
   return data.data || [];
 }
 
 export async function addToWatchlist(code, name) {
-  const res = await fetch(`${API_BASE}/watchlist`, {
+  const res = await fetchWithAuth(`${API_BASE}/watchlist`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, name })
+    body: JSON.stringify({ code, name }),
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.message);
@@ -50,10 +208,106 @@ export async function addToWatchlist(code, name) {
 }
 
 export async function removeFromWatchlist(code) {
-  const res = await fetch(`${API_BASE}/watchlist/${code}`, {
-    method: 'DELETE'
+  const res = await fetchWithAuth(`${API_BASE}/watchlist/${code}`, {
+    method: 'DELETE',
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.message);
   return data.data;
+}
+
+export async function fetchWatchlistSignals() {
+  const res = await fetchWithAuth(`${API_BASE}/watchlist/signals`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '加载自选股信号失败');
+  return data;
+}
+
+export async function refreshWatchlistSignals() {
+  const res = await fetchWithAuth(`${API_BASE}/watchlist/signals/refresh`, {
+    method: 'POST',
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '刷新失败');
+  return data;
+}
+
+export async function getSubscriptionPlans() {
+  const res = await fetchWithAuth(`${API_BASE}/subscription/plans`);
+  const data = await res.json();
+  return data.data || [];
+}
+
+export async function getActivationInfo() {
+  const res = await fetchWithAuth(`${API_BASE}/activation/info`);
+  const data = await res.json();
+  return data;
+}
+
+export async function fetchHotspotSectors(type = 'concept', limit = 50) {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/sectors?type=${type}&limit=${limit}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data || [];
+}
+
+export async function fetchSectorDetail(sectorName, sectorType = 'concept') {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/sector/${encodeURIComponent(sectorName)}?type=${sectorType}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+}
+
+export async function fetchStockAttribution(code, name = '') {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/attribution/${code}?name=${encodeURIComponent(name)}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+}
+
+export async function fetchMarketOverview() {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/market-overview`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+}
+
+export async function refreshHotspotCache(cacheType = null) {
+  const res = await fetchWithAuth(`${API_BASE}/hotspot/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: cacheType })
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data;
+}
+
+export async function fetchExperimentalStock(symbol, startDate, endDate, rsiPeriod = 14) {
+  const res = await fetchWithAuth(
+    `${API_BASE}/experimental/stock/${symbol}?start_date=${startDate}&end_date=${endDate}&rsi_period=${rsiPeriod}`
+  );
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function runExperimentalBacktest(symbol, startDate, endDate, config = {}) {
+  const res = await fetchWithAuth(`${API_BASE}/experimental/backtest`, {
+    method: 'POST',
+    body: JSON.stringify({ symbol, start_date: startDate, end_date: endDate, config }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function runStrategyCompare(symbol, startDate, endDate, config = {}) {
+  const res = await fetchWithAuth(`${API_BASE}/experimental/compare`, {
+    method: 'POST',
+    body: JSON.stringify({ symbol, start_date: startDate, end_date: endDate, config }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
 }

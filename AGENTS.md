@@ -32,8 +32,10 @@ docker-compose build && docker-compose up -d
 - **技术指标**: `indicators.py` 计算 MACD、BOLL、RSI、KDJ、MA、成交量、K 线形态
 - **策略系统**: `strategies.py` 使用加权组合策略，买入/卖出信号由多个子策略加权生成，有趋势过滤
 - **回测引擎**: `backtest.py`，支持手续费、最大回撤、夏普比率等指标
-- **自选股**: `watchlist_manager.py` 使用本地 JSON 文件存储（`backend/watchlist.json`）
-- **前端**: 单文件 `frontend/src/App.js`（约 1200 行），所有图表配置在同一个组件内
+- **自选股**: `watchlist_manager.py` 使用本地 JSON 文件存储（`backend/watchlist.json`）；用户级自选存于 `users.db` 的 `user_watchlists`
+- **账户体系**: `auth.py` + `user_db.py` + `user_service.py`，JWT + RBAC + 套餐配额
+- **会员开通**: **无在线支付**。通过加入知识星球，由管理员在 `/admin` 后台手动分配套餐 (`PUT /api/admin/users/:id/subscription`)
+- **前端**: 单文件 `frontend/src/App.js`（约 400 行），所有图表配置在同一个组件内
 
 ## Key Conventions
 

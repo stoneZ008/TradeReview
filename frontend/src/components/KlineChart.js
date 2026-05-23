@@ -1,50 +1,110 @@
+import React, { useEffect, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { detectMACDDivergence } from '../utils/divergence';
 
-export default function KlineChart({ stockData, symbol }) {
+export default function KlineChart({ stockData, symbol, titleSuffix = '', showLatestInfo = false, hideLegendItems = [], forceMobile = false }) {
+  const [showSupport, setShowSupport] = useState(false);
+  const [showResistance, setShowResistance] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => forceMobile || window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(forceMobile || window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [forceMobile]);
+
   if (!stockData?.data) return null;
 
   const data = stockData.data;
-  const dates = data.map(d => d.date);
-  const candleData = data.map(d => [d.open, d.close, d.low, d.high]);
+  const dates = data.map((d) => d.date);
+  const mobileStartIndex = Math.max(dates.length - 30, 0);
+  const candleData = data.map((d) => [d.open, d.close, d.low, d.high]);
 
-  const buyPoints = data.filter(d => d.signal === 1 && d.buy_score >= 0.08).map(d => ({
-    name: 'B',
-    coord: [d.date, d.low],
-    symbol: 'circle',
-    symbolSize: 20,
-    label: { show: true, formatter: 'B', color: '#fff', fontSize: 12, fontWeight: 'bold' },
-    itemStyle: { color: '#ef4444', borderColor: '#fff', borderWidth: 1 }
+  // 支撑位和压力位 markLine 配置
+  const supportLines = (stockData.support_levels || []).map((level) => ({
+    yAxis: level.price,
+    lineStyle: { color: '#22c55e', type: 'dashed', width: 1.5 },
+    label: {
+      show: true,
+      position: 'start',
+      formatter: `支撑 ${level.price.toFixed(2)}`,
+      color: '#22c55e',
+      fontSize: 11,
+      backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    },
   }));
 
-  const sellPoints = data.filter(d => {
-    if (d.signal !== -1) return false;
-    return d.close < d.ma5;
-  }).map(d => ({
-    name: 'S',
-    coord: [d.date, d.high],
-    symbol: 'circle',
-    symbolSize: 20,
-    label: { show: true, formatter: 'S', color: '#fff', fontSize: 12, fontWeight: 'bold' },
-    itemStyle: { color: '#3b82f6', borderColor: '#fff', borderWidth: 1 }
+  const resistanceLines = (stockData.resistance_levels || []).map((level) => ({
+    yAxis: level.price,
+    lineStyle: { color: '#ef4444', type: 'dashed', width: 1.5 },
+    label: {
+      show: true,
+      position: 'start',
+      formatter: `压力 ${level.price.toFixed(2)}`,
+      color: '#ef4444',
+      fontSize: 11,
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    },
   }));
+
+  const activeSupportLines = showSupport ? supportLines : [];
+  const activeResistanceLines = showResistance ? resistanceLines : [];
+
+  // 最新收盘价
+  const lastClose = data.length > 0 ? data[data.length - 1].close : 0;
+  const lastDate = data.length > 0 ? data[data.length - 1].date : '';
+  const prevClose = data.length > 1 ? data[data.length - 2].close : 0;
+  const latestPctChange = prevClose > 0 ? ((lastClose - prevClose) / prevClose * 100) : 0;
+  const latestInfoText = showLatestInfo
+    ? `收盘 ${lastClose.toFixed(2)} ${latestPctChange >= 0 ? '+' : ''}${latestPctChange.toFixed(2)}%`
+    : '';
+
+  const buyPoints = data
+    .filter((d) => d.signal === 1 && d.buy_score >= 0.08)
+    .map((d) => ({
+      name: 'B',
+      coord: [d.date, d.low],
+      symbol: 'circle',
+      symbolSize: isMobile ? 34 : 20,
+      label: { show: true, formatter: 'B', color: '#fff', fontSize: isMobile ? 15 : 12, fontWeight: 'bold' },
+      itemStyle: { color: '#ef4444', borderColor: '#fff', borderWidth: isMobile ? 2 : 1 },
+    }));
+
+  const sellPoints = data
+    .filter((d) => {
+      if (d.signal !== -1) return false;
+      return d.close < d.ma5;
+    })
+    .map((d) => ({
+      name: 'S',
+      coord: [d.date, d.high],
+      symbol: 'circle',
+      symbolSize: isMobile ? 34 : 20,
+      label: { show: true, formatter: 'S', color: '#fff', fontSize: isMobile ? 15 : 12, fontWeight: 'bold' },
+      itemStyle: { color: '#3b82f6', borderColor: '#fff', borderWidth: isMobile ? 2 : 1 },
+    }));
 
   const { topDivergence, bottomDivergence } = detectMACDDivergence(data);
 
-  const titleText = stockData.name ? stockData.name + ' (' + symbol + ')' : symbol;
+  const stockNameWithSymbol = stockData.name ? stockData.name + ' (' + symbol + ')' : symbol;
+  const titleText = stockNameWithSymbol + (latestInfoText ? ` (${latestInfoText})` : '');
 
   let signalTag = '';
   let signalColor = '';
   let signalBg = '';
+  const adviceText = stockData.trade_advice
+    ? ` | 止损 ${stockData.trade_advice.stop_loss} 止盈 ${stockData.trade_advice.take_profit} 加仓 ${stockData.trade_advice.add_price}`
+    : '';
   for (let i = data.length - 1; i >= 0; i--) {
     if (data[i].signal !== 0) {
       const dateStr = data[i].date.replace(/-/g, '.');
       if (data[i].signal === 1) {
-        signalTag = dateStr + ' 出现买点';
+        signalTag = isMobile ? `${dateStr} 买点 强度${((data[i].buy_score || 0) * 100).toFixed(0)}%` : dateStr + ' 出现买点' + adviceText;
         signalColor = '#fff';
         signalBg = '#ef4444';
       } else {
-        signalTag = dateStr + ' 出现卖点';
+        signalTag = isMobile ? `${dateStr} 卖点 强度${((data[i].sell_score || 0) * 100).toFixed(0)}%` : dateStr + ' 出现卖点';
         signalColor = '#fff';
         signalBg = '#3b82f6';
       }
@@ -52,31 +112,41 @@ export default function KlineChart({ stockData, symbol }) {
     }
   }
 
-  const titleItems = [{
-    text: titleText,
-    left: '10%',
-    top: signalTag ? 3 : 8,
-    textStyle: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
-  }];
+  const titleItems = [
+    {
+      text: `买卖信号参考${titleSuffix}`,
+      left: 'center',
+      top: isMobile ? 4 : 2,
+      textStyle: { color: '#a78bfa', fontSize: isMobile ? 14 : 20, fontWeight: 'bold' },
+    },
+    {
+      text: titleText,
+      left: isMobile ? 8 : '10%',
+      top: signalTag ? (isMobile ? 28 : 34) : (isMobile ? 28 : 36),
+      textStyle: { color: '#fff', fontSize: isMobile ? 11 : 14, fontWeight: 'bold', width: isMobile ? 260 : null, overflow: 'truncate' },
+    },
+  ];
   if (signalTag) {
-    titleItems.push({
+      titleItems.push({
       text: '{tag|' + signalTag + '}',
-      left: '10%',
-      top: 28,
+      left: isMobile ? 8 : '10%',
+      top: isMobile ? 48 : 58,
       textStyle: {
         rich: {
           tag: {
             backgroundColor: signalBg,
             color: signalColor,
-            fontSize: 14,
+            fontSize: isMobile ? 14 : 14,
             fontWeight: 'bold',
-            padding: [4, 10],
-            borderRadius: 4
-          }
-        }
-      }
+            padding: isMobile ? [5, 10] : [4, 10],
+            borderRadius: 4,
+          },
+        },
+      },
     });
   }
+
+  const legendData = ['K线', 'MA5', 'MA10', 'MA20', 'DIF', 'DEA', 'MACD柱'].filter((item) => !hideLegendItems.includes(item));
 
   const option = {
     backgroundColor: '#0f0f1a',
@@ -87,13 +157,13 @@ export default function KlineChart({ stockData, symbol }) {
       backgroundColor: 'rgba(26, 26, 46, 0.9)',
       borderColor: '#2a2a4a',
       textStyle: { color: '#fff' },
-      formatter: function(params) {
+      formatter: function (params) {
         const date = params[0]?.axisValue;
-        const dataItem = data.find(d => d.date === date);
+        const dataItem = data.find((d) => d.date === date);
         let html = `<div style="padding: 8px">
           <div style="font-weight: bold; margin-bottom: 4px">${stockData.name || ''} (${symbol})</div>
           <div style="font-size: 12px; color: #a0a0a0; margin-bottom: 8px">${date || ''}</div>`;
-        params.forEach(p => {
+        params.forEach((p) => {
           if (p.componentType === 'markPoint') return;
           if (p.seriesType === 'candlestick') {
             html += `<div>开盘: ${p.data[1]?.toFixed(2)}</div>
@@ -104,7 +174,7 @@ export default function KlineChart({ stockData, symbol }) {
             const val = typeof p.data === 'number' ? p.data : null;
             if (val !== null) html += `<div>${p.seriesName}: ${val.toFixed(2)}</div>`;
           } else if (p.seriesType === 'bar') {
-            const val = (typeof p.data === 'object' && p.data !== null) ? p.data.value : p.data;
+            const val = typeof p.data === 'object' && p.data !== null ? p.data.value : p.data;
             if (typeof val === 'number') html += `<div>${p.seriesName}: ${val.toFixed(2)}</div>`;
           }
         });
@@ -117,46 +187,245 @@ export default function KlineChart({ stockData, symbol }) {
         }
         html += '</div>';
         return html;
-      }
+      },
     },
     legend: {
-      data: ['K线', 'MA5', 'MA10', 'MA20', 'DIF', 'DEA', 'MACD柱'],
+      data: legendData,
       textStyle: { color: '#a0a0a0' },
-      top: signalTag ? 48 : 0
+      top: signalTag ? 40 : 0,
     },
     grid: [
       { left: '10%', right: '5%', top: signalTag ? '18%' : '12%', height: '40%' },
       { left: '10%', right: '5%', top: '61%', height: '16%' },
-      { left: '10%', right: '5%', top: '80%', height: '14%' }
+      { left: '10%', right: '5%', top: '80%', height: '14%' },
     ],
     xAxis: [
-      { type: 'category', data: dates, gridIndex: 0, axisLine: { lineStyle: { color: '#2a2a4a' } }, axisLabel: { show: false } },
-      { type: 'category', data: dates, gridIndex: 1, axisLine: { lineStyle: { color: '#2a2a4a' } }, axisLabel: { show: false } },
-      { type: 'category', data: dates, gridIndex: 2, axisLine: { lineStyle: { color: '#2a2a4a' } }, axisLabel: { color: '#a0a0a0', fontSize: 10 } }
+      {
+        type: 'category',
+        data: dates,
+        gridIndex: 0,
+        axisLine: { lineStyle: { color: '#2a2a4a' } },
+        axisLabel: { show: false },
+      },
+      {
+        type: 'category',
+        data: dates,
+        gridIndex: 1,
+        axisLine: { lineStyle: { color: '#2a2a4a' } },
+        axisLabel: { show: false },
+      },
+      {
+        type: 'category',
+        data: dates,
+        gridIndex: 2,
+        axisLine: { lineStyle: { color: '#2a2a4a' } },
+        axisLabel: { color: '#a0a0a0', fontSize: 10 },
+      },
     ],
     yAxis: [
-      { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: '#2a2a4a' } }, axisLabel: { color: '#a0a0a0' } },
+      {
+        scale: true,
+        gridIndex: 0,
+        splitLine: { lineStyle: { color: '#2a2a4a' } },
+        axisLabel: { color: '#a0a0a0' },
+      },
       { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { show: false } },
-      { scale: true, gridIndex: 2, splitLine: { show: false }, axisLabel: { show: false } }
+      { scale: true, gridIndex: 2, splitLine: { show: false }, axisLabel: { show: false } },
     ],
-    dataZoom: [
+    dataZoom: isMobile ? [] : [
       { type: 'inside', xAxisIndex: [0, 1, 2], start: 50, end: 100 },
-      { type: 'slider', xAxisIndex: [0, 1, 2], bottom: 0, height: 20 }
+      { type: 'slider', xAxisIndex: [0, 1, 2], bottom: 0, height: 20 },
     ],
     series: [
-      { name: 'K线', type: 'candlestick', data: candleData, xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#ef4444', color0: '#22c55e', borderColor: '#ef4444', borderColor0: '#22c55e' }, markPoint: { data: [...buyPoints, ...sellPoints] } },
-      { name: 'MA5', type: 'line', data: data.map(d => d.ma5), xAxisIndex: 0, yAxisIndex: 0, lineStyle: { color: '#fbbf24', width: 1 }, symbol: 'none' },
-      { name: 'MA10', type: 'line', data: data.map(d => d.ma10), xAxisIndex: 0, yAxisIndex: 0, lineStyle: { color: '#60a5fa', width: 1 }, symbol: 'none' },
-      { name: 'MA20', type: 'line', data: data.map(d => d.ma20), xAxisIndex: 0, yAxisIndex: 0, lineStyle: { color: '#a78bfa', width: 1 }, symbol: 'none' },
-      { name: '布林带', type: 'line', data: data.map(d => d.boll_upper), xAxisIndex: 0, yAxisIndex: 0, lineStyle: { color: '#3b82f6', width: 1, type: 'dashed' }, symbol: 'none' },
-      { name: '布林中轨', type: 'line', data: data.map(d => d.boll_middle), xAxisIndex: 0, yAxisIndex: 0, lineStyle: { color: '#3b82f6', width: 1 }, symbol: 'none' },
-      { name: '布林下轨', type: 'line', data: data.map(d => d.boll_lower), xAxisIndex: 0, yAxisIndex: 0, lineStyle: { color: '#3b82f6', width: 1, type: 'dashed' }, symbol: 'none' },
-      { name: 'DIF', type: 'line', data: data.map(d => d.macd), xAxisIndex: 1, yAxisIndex: 1, lineStyle: { color: '#3b82f6', width: 1.5 }, symbol: 'none', markPoint: { data: [...topDivergence, ...bottomDivergence] } },
-      { name: 'DEA', type: 'line', data: data.map(d => d.macd_signal), xAxisIndex: 1, yAxisIndex: 1, lineStyle: { color: '#fbbf24', width: 1.5 }, symbol: 'none' },
-      { name: 'MACD柱', type: 'bar', data: data.map(d => ({ value: d.macd_hist, itemStyle: { color: d.macd_hist >= 0 ? '#ef4444' : '#22c55e' } })), xAxisIndex: 1, yAxisIndex: 1 },
-      { name: '成交量', type: 'bar', data: data.map(d => ({ value: d.volume, itemStyle: { color: d.close >= d.open ? '#ef4444' : '#22c55e' } })), xAxisIndex: 2, yAxisIndex: 2 }
-    ]
+      {
+        name: 'K线',
+        type: 'candlestick',
+        data: candleData,
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        itemStyle: {
+          color: '#ef4444',
+          color0: '#22c55e',
+          borderColor: '#ef4444',
+          borderColor0: '#22c55e',
+        },
+        markPoint: { data: [...buyPoints, ...sellPoints] },
+        markLine: {
+          symbol: 'none',
+          data: [...activeSupportLines, ...activeResistanceLines],
+          label: { distance: [10, 0] },
+        },
+      },
+      {
+        name: 'MA5',
+        type: 'line',
+        data: data.map((d) => d.ma5),
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        lineStyle: { color: '#fbbf24', width: 1 },
+        symbol: 'none',
+      },
+      {
+        name: 'MA10',
+        type: 'line',
+        data: data.map((d) => d.ma10),
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        lineStyle: { color: '#60a5fa', width: 1 },
+        symbol: 'none',
+      },
+      {
+        name: 'MA20',
+        type: 'line',
+        data: data.map((d) => d.ma20),
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        lineStyle: { color: '#a78bfa', width: 1 },
+        symbol: 'none',
+      },
+      {
+        name: '布林带',
+        type: 'line',
+        data: data.map((d) => d.boll_upper),
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        lineStyle: { color: '#3b82f6', width: 1, type: 'dashed' },
+        symbol: 'none',
+      },
+      {
+        name: '布林中轨',
+        type: 'line',
+        data: data.map((d) => d.boll_middle),
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        lineStyle: { color: '#3b82f6', width: 1 },
+        symbol: 'none',
+      },
+      {
+        name: '布林下轨',
+        type: 'line',
+        data: data.map((d) => d.boll_lower),
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        lineStyle: { color: '#3b82f6', width: 1, type: 'dashed' },
+        symbol: 'none',
+      },
+      {
+        name: 'DIF',
+        type: 'line',
+        data: data.map((d) => d.macd),
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        lineStyle: { color: '#3b82f6', width: 1.5 },
+        symbol: 'none',
+        markPoint: { data: [...topDivergence, ...bottomDivergence] },
+      },
+      {
+        name: 'DEA',
+        type: 'line',
+        data: data.map((d) => d.macd_signal),
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        lineStyle: { color: '#fbbf24', width: 1.5 },
+        symbol: 'none',
+      },
+      {
+        name: 'MACD柱',
+        type: 'bar',
+        data: data.map((d) => ({
+          value: d.macd_hist,
+          itemStyle: { color: d.macd_hist >= 0 ? '#ef4444' : '#22c55e' },
+        })),
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+      },
+      {
+        name: '成交量',
+        type: 'bar',
+        data: data.map((d) => ({
+          value: d.volume,
+          itemStyle: { color: d.close >= d.open ? '#ef4444' : '#22c55e' },
+        })),
+        xAxisIndex: 2,
+        yAxisIndex: 2,
+      },
+    ],
+    media: [
+      {
+        query: { maxWidth: 768 },
+        option: {
+          title: [{ textStyle: { fontSize: 14 } }, { textStyle: { fontSize: 11 } }],
+          legend: { show: false },
+          grid: [
+            { left: 42, right: 12, top: signalTag ? 66 : 48, height: 292 },
+            { left: 42, right: 12, top: 0, height: 0 },
+            { left: 42, right: 12, top: 0, height: 0 },
+          ],
+          xAxis: [
+            { min: mobileStartIndex, max: dates.length - 1, axisLabel: { show: true, color: '#a0a0a0', fontSize: 10 } },
+            { show: false },
+            { show: false },
+          ],
+          yAxis: [
+            { axisLabel: { color: '#a0a0a0', fontSize: 10 } },
+            { show: false },
+            { show: false },
+          ],
+          dataZoom: [],
+          series: [
+            { markPoint: { symbolSize: 34, label: { fontSize: 15 } } },
+            { lineStyle: { width: 1 } },
+            { lineStyle: { width: 1 } },
+            { lineStyle: { width: 1 } },
+            { lineStyle: { width: 0 }, itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { lineStyle: { width: 0 }, itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { lineStyle: { width: 0 }, itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { lineStyle: { width: 0 }, itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+            { itemStyle: { opacity: 0 }, emphasis: { disabled: true } },
+          ],
+        },
+      },
+    ],
   };
 
-  return <ReactECharts option={option} style={{ height: '100%' }} />;
+  return (
+    <div style={{ position: 'relative', height: '100%' }}>
+      <div
+        style={{ position: 'absolute', top: isMobile ? 30 : 8, right: isMobile ? 8 : 20, zIndex: 10, display: 'flex', gap: isMobile ? '4px' : '8px' }}
+      >
+        <button
+          onClick={() => setShowSupport(!showSupport)}
+          style={{
+            padding: isMobile ? '3px 8px' : '4px 12px',
+            fontSize: isMobile ? '11px' : '12px',
+            backgroundColor: showSupport ? '#22c55e' : 'rgba(34, 197, 94, 0.2)',
+            color: showSupport ? '#fff' : '#22c55e',
+            border: '1px solid #22c55e',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+          }}
+        >
+          支撑
+        </button>
+        <button
+          onClick={() => setShowResistance(!showResistance)}
+          style={{
+            padding: isMobile ? '3px 8px' : '4px 12px',
+            fontSize: isMobile ? '11px' : '12px',
+            backgroundColor: showResistance ? '#ef4444' : 'rgba(239, 68, 68, 0.2)',
+            color: showResistance ? '#fff' : '#ef4444',
+            border: '1px solid #ef4444',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+          }}
+        >
+          压力
+        </button>
+      </div>
+      <ReactECharts option={option} style={{ height: '100%' }} />
+    </div>
+  );
 }
