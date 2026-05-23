@@ -357,7 +357,7 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           title: [{ textStyle: { fontSize: 14 } }, { textStyle: { fontSize: 11 } }],
           legend: { show: false },
           grid: [
-            { left: 42, right: 12, top: signalTag ? 70 : 50, height: 340 },
+            { left: 42, right: 12, top: signalTag ? 66 : 48, height: 292 },
             { left: 42, right: 12, top: 0, height: 0 },
             { left: 42, right: 12, top: 0, height: 0 },
           ],

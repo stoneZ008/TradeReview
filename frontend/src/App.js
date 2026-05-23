@@ -89,7 +89,6 @@ function HomePage() {
   const [backtestResult, setBacktestResult] = useState(null);
   const [watchlist, setWatchlist] = useState([]);
   const [rsiPeriod, setRsiPeriod] = useState(14);
-  const chartSectionRef = useRef(null);
   const userMenuRef = useRef(null);
 
   React.useEffect(() => {
@@ -127,9 +126,6 @@ function HomePage() {
     setSymbol(stock.code);
     setInputSymbol(stock.code);
     fetchDataForCode(stock.code);
-    if (isMobileView()) {
-      chartSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
   };
 
   const handleStockSelectFromDao = (code) => {
@@ -455,7 +451,7 @@ function HomePage() {
         <div className="main-content">
           <Watchlist watchlist={watchlist} onSelect={selectWatchStock} onRemove={handleRemoveFromWatchlist} />
 
-          <div className="chart-section" ref={chartSectionRef}>
+          <div className="chart-section">
             <div className="chart-tabs">
               <button className={`tab ${activeChart === 'kline' ? 'active' : ''}`} onClick={() => handleChartChange('kline')}>
                 默认策略
