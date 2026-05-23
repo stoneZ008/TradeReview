@@ -8,7 +8,7 @@ numpy==1.26.3
 gunicorn==21.2.0
 requests==2.31.0
 yfinance==0.2.38
-curl-cffi==0.7.0
+curl-cffi>=0.13.0
 akshare==1.10.23
 APScheduler==3.10.4
 
