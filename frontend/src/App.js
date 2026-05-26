@@ -12,6 +12,7 @@ import KDJStatus from './components/KDJStatus';
 import EquityChart from './components/EquityChart';
 import Watchlist from './components/Watchlist';
 import WatchlistSignals from './components/WatchlistSignals';
+import BatchSignalScanner from './components/BatchSignalScanner';
 import SignalPanel from './components/SignalPanel';
 import BacktestPanel from './components/BacktestPanel';
 import LoginPage from './pages/LoginPage';
@@ -45,6 +46,8 @@ function HomePage() {
   const [inputSymbol, setInputSymbol] = useState('');
   const [activePage, setActivePage] = useState('shu');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [scanResults, setScanResults] = useState([]);
+  const [scanJsonText, setScanJsonText] = useState('');
 
   const hasDaoAccess = React.useMemo(() => {
     if (!user) return false;
@@ -62,6 +65,12 @@ function HomePage() {
     return roles.includes('admin') || roles.includes('super_admin');
   }, [user]);
 
+  const hasScanAccess = React.useMemo(() => {
+    if (!user) return false;
+    const roles = user.roles || [];
+    return roles.includes('admin') || roles.includes('super_admin');
+  }, [user]);
+
   React.useEffect(() => {
     if (!hasDaoAccess && activePage === 'dao') {
       setActivePage('shu');
@@ -69,7 +78,10 @@ function HomePage() {
     if (!hasHotspotAccess && activePage === 'hotspot') {
       setActivePage('shu');
     }
-  }, [hasDaoAccess, hasHotspotAccess, activePage]);
+    if (!hasScanAccess && activePage === 'scan') {
+      setActivePage('shu');
+    }
+  }, [hasDaoAccess, hasHotspotAccess, hasScanAccess, activePage]);
 
   const getCurrentDate = () => {
     const today = new Date();
@@ -327,6 +339,14 @@ function HomePage() {
               热点洞察
             </button>
           )}
+          {hasScanAccess && (
+            <button
+              className={`nav-tab ${activePage === 'scan' ? 'active' : ''}`}
+              onClick={() => setActivePage('scan')}
+            >
+              个股洞察
+            </button>
+          )}
           <button
             className={`nav-tab ${activePage === 'shu' ? 'active' : ''}`}
             onClick={() => setActivePage('shu')}
@@ -447,6 +467,8 @@ function HomePage() {
         <DaoPage onStockSelect={handleStockSelectFromDao} />
       ) : activePage === 'hotspot' ? (
         <HotspotPage onStockSelect={handleStockSelectFromDao} />
+      ) : activePage === 'scan' ? (
+        <BatchSignalScanner onStockSelect={handleStockSelectFromDao} results={scanResults} setResults={setScanResults} jsonText={scanJsonText} setJsonText={setScanJsonText} />
       ) : (
         <div className="main-content">
           <Watchlist watchlist={watchlist} onSelect={selectWatchStock} onRemove={handleRemoveFromWatchlist} />

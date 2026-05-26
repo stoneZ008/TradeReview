@@ -311,3 +311,13 @@ export async function runStrategyCompare(symbol, startDate, endDate, config = {}
   if (data.error) throw new Error(data.error);
   return data;
 }
+
+export async function batchScanSignals(stocks) {
+  const res = await fetchWithAuth(`${API_BASE}/batch-scan/scan`, {
+    method: 'POST',
+    body: JSON.stringify({ stocks }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '批量扫描失败');
+  return data;
+}
