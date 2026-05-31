@@ -83,6 +83,8 @@ def get_stock_data(symbol):
             "kdj_d": round(row["kdj_d"], 2) if pd.notna(row["kdj_d"]) else None,
             "kdj_j": round(row["kdj_j"], 2) if pd.notna(row["kdj_j"]) else None,
             "vol_ratio": round(row["vol_ratio"], 2) if pd.notna(row["vol_ratio"]) else None,
+            "momentum_score": round(row["momentum_score"], 2) if pd.notna(row.get("momentum_score")) else None,
+            "momentum_level": row.get("momentum_level", "") if pd.notna(row.get("momentum_level")) else "",
             "buy_score": round(row["buy_score"], 3),
             "sell_score": round(row["sell_score"], 3),
             "signal": int(row["signal"]),
@@ -97,6 +99,24 @@ def get_stock_data(symbol):
     # 计算支撑位和压力位
     sr_levels = find_support_resistance(df_with_indicators, n_support=2, n_resistance=2)
 
+    latest_momentum = None
+    if len(result_df) > 0:
+        last_row = result_df.iloc[-1]
+        if pd.notna(last_row.get("momentum_score")):
+            latest_momentum = {
+                "score": round(float(last_row["momentum_score"]), 2),
+                "level": last_row.get("momentum_level", ""),
+                "factors": {
+                    "price_trend": round(float(last_row.get("mom_trend", 0)), 2),
+                    "ma_slope": round(float(last_row.get("mom_slope", 0)), 2),
+                    "price_change": round(float(last_row.get("mom_change", 0)), 2),
+                    "macd_momentum": round(float(last_row.get("mom_macd", 0)), 2),
+                    "rsi": round(float(last_row.get("mom_rsi", 0)), 2),
+                    "volume": round(float(last_row.get("mom_volume", 0)), 2),
+                    "position_52w": round(float(last_row.get("mom_position", 0)), 2),
+                },
+            }
+
     return jsonify(
         {
             "name": stock_name,
@@ -104,7 +124,12 @@ def get_stock_data(symbol):
             "data": records,
             "support_levels": sr_levels["support_levels"],
             "resistance_levels": sr_levels["resistance_levels"],
-            "summary": {"total": len(records), "buy_signals": len(buy_points), "sell_signals": len(sell_points)},
+            "summary": {
+                "total": len(records),
+                "buy_signals": len(buy_points),
+                "sell_signals": len(sell_points),
+                "latest_momentum": latest_momentum,
+            },
         }
     )
 

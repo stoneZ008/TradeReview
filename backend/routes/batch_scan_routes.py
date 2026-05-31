@@ -1,8 +1,38 @@
 import time
+import json
+import os
 from flask import request, jsonify, g
 from routes import batch_scan_bp
 from auth import requires_roles
 from watchlist_scanner import _scan_single_stock
+
+PRESET_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'batch_scan_preset.json')
+
+
+@batch_scan_bp.route("/preset", methods=["GET"])
+@requires_roles("admin", "super_admin")
+def get_batch_scan_preset():
+    try:
+        if os.path.exists(PRESET_FILE):
+            with open(PRESET_FILE, 'r', encoding='utf-8') as f:
+                content = f.read()
+            return jsonify({"success": True, "content": content})
+    except Exception:
+        pass
+    return jsonify({"success": True, "content": ""})
+
+
+@batch_scan_bp.route("/preset", methods=["PUT"])
+@requires_roles("admin", "super_admin")
+def save_batch_scan_preset():
+    data = request.json or {}
+    content = data.get("content", "")
+    try:
+        with open(PRESET_FILE, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @batch_scan_bp.route("/scan", methods=["POST"])

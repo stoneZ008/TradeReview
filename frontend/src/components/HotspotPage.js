@@ -114,6 +114,9 @@ function HotspotPage({ onStockSelect }) {
             {marketOverview && marketOverview.total_turnover_text && (
               <span className="turnover-tag">
                 💰 今日成交: <strong>{marketOverview.total_turnover_text}</strong>
+                {marketOverview.turnover_source === 'mock' && (
+                  <span style={{ color: '#f59e0b', fontSize: '12px', marginLeft: '4px' }}>(示例)</span>
+                )}
               </span>
             )}
             {sectors[0].is_mock && (

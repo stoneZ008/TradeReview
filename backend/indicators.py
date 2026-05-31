@@ -232,6 +232,239 @@ def detect_candle_patterns(df):
     return patterns
 
 
+def _momentum_level(score):
+    """根据得分划分动能等级"""
+    if score >= 80:
+        return "极强"
+    if score >= 60:
+        return "强势"
+    if score >= 40:
+        return "中性"
+    if score >= 20:
+        return "弱势"
+    return "极弱"
+
+
+def _score_price_trend(row):
+    """价格趋势得分（满分 25）：基于收盘价相对 MA5/MA10/MA20/MA60 的位置"""
+    close = row.get("close")
+    ma5 = row.get("ma5")
+    ma10 = row.get("ma10")
+    ma20 = row.get("ma20")
+    ma60 = row.get("ma60")
+    if pd.isna(close) or close is None:
+        return 0.0
+
+    score = 0.0
+    if pd.notna(ma5) and close > ma5:
+        score += 5
+    if pd.notna(ma10) and close > ma10:
+        score += 5
+    if pd.notna(ma20) and close > ma20:
+        score += 7
+    if pd.notna(ma60) and close > ma60:
+        score += 3
+
+    if pd.notna(ma5) and pd.notna(ma10) and pd.notna(ma20):
+        if ma5 > ma10 > ma20:
+            score += 5
+    return min(score, 25.0)
+
+
+def _score_ma_slope(df, idx, period=5):
+    """MA20 斜率得分（满分 15）：近 N 日 MA20 涨跌幅"""
+    if idx < period or "ma20" not in df.columns:
+        return 0.0
+    cur_ma = df["ma20"].iloc[idx]
+    prev_ma = df["ma20"].iloc[idx - period]
+    if pd.isna(cur_ma) or pd.isna(prev_ma) or prev_ma <= 0:
+        return 0.0
+    slope_pct = (cur_ma - prev_ma) / prev_ma * 100
+    if slope_pct >= 1.0:
+        return 15.0
+    if slope_pct >= 0.5:
+        return 12.0
+    if slope_pct >= 0:
+        return 8.0
+    if slope_pct >= -0.5:
+        return 4.0
+    return 0.0
+
+
+def _score_price_change(df, idx, period=20):
+    """价格涨幅得分（满分 20）：近 N 日累计涨幅"""
+    if idx < period:
+        return 0.0
+    cur_close = df["close"].iloc[idx]
+    prev_close = df["close"].iloc[idx - period]
+    if pd.isna(cur_close) or pd.isna(prev_close) or prev_close <= 0:
+        return 0.0
+    change_pct = (cur_close - prev_close) / prev_close * 100
+    if change_pct >= 20:
+        return 20.0
+    if change_pct >= 10:
+        return 16.0
+    if change_pct >= 5:
+        return 12.0
+    if change_pct >= 0:
+        return 8.0
+    if change_pct >= -5:
+        return 4.0
+    return 0.0
+
+
+def _score_macd_momentum(df, idx):
+    """MACD 动能得分（满分 15）：MACD 柱变化 + DIF/DEA 关系"""
+    if idx < 1:
+        return 0.0
+    cur_hist = df["macd_hist"].iloc[idx]
+    prev_hist = df["macd_hist"].iloc[idx - 1]
+    cur_macd = df["macd"].iloc[idx]
+    cur_signal = df["macd_signal"].iloc[idx]
+    if pd.isna(cur_hist) or pd.isna(cur_macd) or pd.isna(cur_signal):
+        return 0.0
+
+    score = 0.0
+    if cur_hist > 0:
+        score += 4
+        if pd.notna(prev_hist) and cur_hist > prev_hist:
+            score += 4
+    else:
+        if pd.notna(prev_hist) and cur_hist > prev_hist:
+            score += 2
+
+    if cur_macd > cur_signal:
+        score += 4
+    if cur_macd > 0:
+        score += 3
+    return min(score, 15.0)
+
+
+def _score_rsi(row):
+    """RSI 强度得分（满分 10）：50-70 为最佳强势区间"""
+    rsi = row.get("rsi")
+    if pd.isna(rsi) or rsi is None:
+        return 0.0
+    if 55 <= rsi <= 70:
+        return 10.0
+    if 50 <= rsi < 55:
+        return 8.0
+    if 70 < rsi <= 80:
+        return 7.0
+    if 45 <= rsi < 50:
+        return 5.0
+    if 80 < rsi <= 90:
+        return 4.0
+    if 30 <= rsi < 45:
+        return 3.0
+    return 1.0
+
+
+def _score_volume(df, idx):
+    """成交量动能得分（满分 10）：量比 + 价升量增"""
+    if idx < 1:
+        return 0.0
+    vol_ratio = df["vol_ratio"].iloc[idx] if "vol_ratio" in df.columns else None
+    cur_close = df["close"].iloc[idx]
+    prev_close = df["close"].iloc[idx - 1]
+    cur_vol = df["volume"].iloc[idx]
+    prev_vol = df["volume"].iloc[idx - 1]
+    if pd.isna(vol_ratio) or vol_ratio is None:
+        return 0.0
+
+    score = 0.0
+    if vol_ratio >= 2.0:
+        score += 5
+    elif vol_ratio >= 1.5:
+        score += 4
+    elif vol_ratio >= 1.0:
+        score += 3
+    elif vol_ratio >= 0.7:
+        score += 2
+
+    if pd.notna(cur_close) and pd.notna(prev_close) and pd.notna(cur_vol) and pd.notna(prev_vol):
+        if cur_close > prev_close and cur_vol > prev_vol:
+            score += 5
+        elif cur_close > prev_close:
+            score += 3
+    return min(score, 10.0)
+
+
+def _score_52w_position(df, idx):
+    """52周位置得分（满分 5）：当前价相对 52 周高低点位置"""
+    lookback = min(idx + 1, 252)
+    if lookback < 20:
+        return 0.0
+    window = df.iloc[idx - lookback + 1 : idx + 1]
+    high_52w = window["high"].max()
+    low_52w = window["low"].min()
+    cur_close = df["close"].iloc[idx]
+    if pd.isna(high_52w) or pd.isna(low_52w) or high_52w <= low_52w:
+        return 0.0
+    position = (cur_close - low_52w) / (high_52w - low_52w)
+    if position >= 0.9:
+        return 5.0
+    if position >= 0.7:
+        return 4.0
+    if position >= 0.5:
+        return 3.0
+    if position >= 0.3:
+        return 2.0
+    return 1.0
+
+
+def calculate_momentum_score(df):
+    """计算个股动能指标（0-100）
+
+    返回 DataFrame: momentum_score, momentum_level, 以及各分项得分列
+    """
+    scores = []
+    levels = []
+    trend_scores = []
+    slope_scores = []
+    change_scores = []
+    macd_scores = []
+    rsi_scores = []
+    vol_scores = []
+    pos_scores = []
+
+    for idx in range(len(df)):
+        row = df.iloc[idx]
+        s_trend = _score_price_trend(row)
+        s_slope = _score_ma_slope(df, idx)
+        s_change = _score_price_change(df, idx)
+        s_macd = _score_macd_momentum(df, idx)
+        s_rsi = _score_rsi(row)
+        s_vol = _score_volume(df, idx)
+        s_pos = _score_52w_position(df, idx)
+        total = s_trend + s_slope + s_change + s_macd + s_rsi + s_vol + s_pos
+        total = round(max(0.0, min(100.0, total)), 2)
+        scores.append(total)
+        levels.append(_momentum_level(total))
+        trend_scores.append(round(s_trend, 2))
+        slope_scores.append(round(s_slope, 2))
+        change_scores.append(round(s_change, 2))
+        macd_scores.append(round(s_macd, 2))
+        rsi_scores.append(round(s_rsi, 2))
+        vol_scores.append(round(s_vol, 2))
+        pos_scores.append(round(s_pos, 2))
+
+    return pd.DataFrame(
+        {
+            "momentum_score": scores,
+            "momentum_level": levels,
+            "mom_trend": trend_scores,
+            "mom_slope": slope_scores,
+            "mom_change": change_scores,
+            "mom_macd": macd_scores,
+            "mom_rsi": rsi_scores,
+            "mom_volume": vol_scores,
+            "mom_position": pos_scores,
+        },
+        index=df.index,
+    )
+
+
 def calculate_all_indicators(df, rsi_period=14):
     """
     计算所有技术指标
@@ -273,6 +506,11 @@ def calculate_all_indicators(df, rsi_period=14):
     # K线形态
     result["kline_pattern"] = detect_kline_pattern(df)
     result["candle_pattern"] = detect_candle_patterns(df)
+
+    # 动能指标（需在 MACD/RSI/MA/vol_ratio 计算后）
+    momentum = calculate_momentum_score(result)
+    for col in momentum.columns:
+        result[col] = momentum[col]
 
     return result
 

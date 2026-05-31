@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { batchScanSignals } from '../api';
+import React, { useState, useMemo, useEffect } from 'react';
+import { batchScanSignals, getBatchScanPreset, saveBatchScanPreset } from '../api';
 
 const SAMPLE_JSON = JSON.stringify({
   "AI光通信产业链": {
@@ -166,10 +166,23 @@ export default function BatchSignalScanner({ onStockSelect, results, setResults,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [presetLoaded, setPresetLoaded] = useState(false);
+
+  useEffect(() => {
+    if (presetLoaded) return;
+    getBatchScanPreset().then(content => {
+      if (content) setJsonText(content);
+      setPresetLoaded(true);
+    }).catch(() => {
+      setPresetLoaded(true);
+    });
+  }, [presetLoaded, setJsonText]);
 
   const grouped = useMemo(() => groupByIndustry(results), [results]);
 
   const signalCount = useMemo(() => results.filter(r => r.has_signal_today).length, [results]);
+  const buyCount = useMemo(() => results.filter(r => r.has_signal_today && r.last_signal === 1).length, [results]);
+  const sellCount = useMemo(() => results.filter(r => r.has_signal_today && r.last_signal === -1).length, [results]);
 
   const toggleGroup = (key) => {
     setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }));
@@ -186,6 +199,8 @@ export default function BatchSignalScanner({ onStockSelect, results, setResults,
       setError('JSON 格式错误：' + e.message);
       return;
     }
+
+    saveBatchScanPreset(effectiveJsonText).catch(() => {});
 
     const stocks = parseNestedStocks(parsed);
     if (stocks.length === 0) {
@@ -313,6 +328,8 @@ export default function BatchSignalScanner({ onStockSelect, results, setResults,
             <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
               <span>共 {results.length} 只</span>
               <span style={{ color: '#fbbf24', fontWeight: 600 }}>⭐ 今日信号 {signalCount} 只</span>
+              <span style={{ color: '#ef4444', fontWeight: 600 }}>B 买入 {buyCount}</span>
+              <span style={{ color: '#3b82f6', fontWeight: 600 }}>S 卖出 {sellCount}</span>
             </div>
           )}
         </div>

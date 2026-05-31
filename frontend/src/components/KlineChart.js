@@ -5,6 +5,7 @@ import { detectMACDDivergence } from '../utils/divergence';
 export default function KlineChart({ stockData, symbol, titleSuffix = '', showLatestInfo = false, hideLegendItems = [], forceMobile = false }) {
   const [showSupport, setShowSupport] = useState(false);
   const [showResistance, setShowResistance] = useState(false);
+  const [showMomentumDetail, setShowMomentumDetail] = useState(false);
   const [isMobile, setIsMobile] = useState(() => forceMobile || window.innerWidth <= 768);
 
   useEffect(() => {
@@ -86,6 +87,24 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
     }));
 
   const { topDivergence, bottomDivergence } = detectMACDDivergence(data);
+
+  const latestMomentum = stockData.summary?.latest_momentum || null;
+  const getMomentumColor = (score) => {
+    if (score === null || score === undefined) return '#6b7280';
+    if (score >= 80) return '#ef4444';
+    if (score >= 60) return '#f97316';
+    if (score >= 40) return '#fbbf24';
+    if (score >= 20) return '#06b6d4';
+    return '#22c55e';
+  };
+  const getMomentumIcon = (score) => {
+    if (score === null || score === undefined) return '📊';
+    if (score >= 80) return '🔥';
+    if (score >= 60) return '💪';
+    if (score >= 40) return '⚖️';
+    if (score >= 20) return '📉';
+    return '❄️';
+  };
 
   const stockNameWithSymbol = stockData.name ? stockData.name + ' (' + symbol + ')' : symbol;
   const titleText = stockNameWithSymbol + (latestInfoText ? ` (${latestInfoText})` : '');
@@ -184,6 +203,10 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           } else if (dataItem.signal === -1) {
             html += `<div style="color: #3b82f6; margin-top: 4px">卖出信号强度: ${(dataItem.sell_score * 100).toFixed(1)}%</div>`;
           }
+        }
+        if (dataItem && dataItem.momentum_score !== null && dataItem.momentum_score !== undefined) {
+          const momColor = getMomentumColor(dataItem.momentum_score);
+          html += `<div style="color: ${momColor}; margin-top: 4px; font-weight: bold">动能: ${dataItem.momentum_score.toFixed(1)} (${dataItem.momentum_level || ''})</div>`;
         }
         html += '</div>';
         return html;
@@ -392,8 +415,81 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
   return (
     <div style={{ position: 'relative', height: '100%' }}>
       <div
-        style={{ position: 'absolute', top: isMobile ? 30 : 8, right: isMobile ? 8 : 20, zIndex: 10, display: 'flex', gap: isMobile ? '4px' : '8px' }}
+        style={{ position: 'absolute', top: isMobile ? 30 : 8, right: isMobile ? 8 : 20, zIndex: 10, display: 'flex', gap: isMobile ? '4px' : '8px', alignItems: 'center' }}
       >
+        {latestMomentum && (
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowMomentumDetail(!showMomentumDetail)}
+              title="点击查看动能分项明细"
+              style={{
+                padding: isMobile ? '3px 8px' : '4px 12px',
+                fontSize: isMobile ? '11px' : '12px',
+                backgroundColor: getMomentumColor(latestMomentum.score),
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <span>{getMomentumIcon(latestMomentum.score)}</span>
+              <span>动能 {latestMomentum.score.toFixed(0)}</span>
+              <span>{latestMomentum.level}</span>
+            </button>
+            {showMomentumDetail && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '110%',
+                  right: 0,
+                  background: 'rgba(15, 15, 26, 0.97)',
+                  border: `1px solid ${getMomentumColor(latestMomentum.score)}`,
+                  borderRadius: '6px',
+                  padding: '10px 12px',
+                  fontSize: '12px',
+                  color: '#fff',
+                  zIndex: 20,
+                  minWidth: '200px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                }}
+              >
+                <div style={{ fontWeight: 'bold', marginBottom: '6px', color: getMomentumColor(latestMomentum.score) }}>
+                  动能分项 (总分 {latestMomentum.score.toFixed(1)} / 100)
+                </div>
+                {[
+                  { key: 'price_trend', label: '价格趋势', max: 25 },
+                  { key: 'ma_slope', label: '均线斜率', max: 15 },
+                  { key: 'price_change', label: '涨幅强度', max: 20 },
+                  { key: 'macd_momentum', label: 'MACD动能', max: 15 },
+                  { key: 'rsi', label: 'RSI强度', max: 10 },
+                  { key: 'volume', label: '成交量', max: 10 },
+                  { key: 'position_52w', label: '52周位置', max: 5 },
+                ].map((item) => {
+                  const val = latestMomentum.factors?.[item.key] ?? 0;
+                  const ratio = val / item.max;
+                  const barColor = ratio >= 0.7 ? '#ef4444' : ratio >= 0.4 ? '#fbbf24' : '#6b7280';
+                  return (
+                    <div key={item.key} style={{ marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                        <span style={{ color: '#a0a0a0' }}>{item.label}</span>
+                        <span style={{ color: '#fff', fontWeight: 'bold' }}>
+                          {val.toFixed(1)} / {item.max}
+                        </span>
+                      </div>
+                      <div style={{ height: '4px', background: '#2a2a4a', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ width: `${ratio * 100}%`, height: '100%', background: barColor }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
         <button
           onClick={() => setShowSupport(!showSupport)}
           style={{

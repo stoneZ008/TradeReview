@@ -321,3 +321,20 @@ export async function batchScanSignals(stocks) {
   if (!data.success) throw new Error(data.error || '批量扫描失败');
   return data;
 }
+
+export async function getBatchScanPreset() {
+  const res = await fetchWithAuth(`${API_BASE}/batch-scan/preset`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '加载预设失败');
+  return data.content;
+}
+
+export async function saveBatchScanPreset(content) {
+  const res = await fetchWithAuth(`${API_BASE}/batch-scan/preset`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '保存预设失败');
+  return data;
+}
