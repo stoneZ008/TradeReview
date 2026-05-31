@@ -194,24 +194,24 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
       left: isMobile ? 8 : 12,
       top: isMobile ? 30 : 32,
     };
-    if (weakSellTag) {
+    if (weakSellTag && !isMobile) {
       titleItem.text = '{tag|' + signalTag + '}  {warn|' + weakSellTag + '}';
       titleItem.textStyle = {
         rich: {
           tag: {
             backgroundColor: signalBg,
             color: signalColor,
-            fontSize: isMobile ? 12 : 12,
+            fontSize: 12,
             fontWeight: 'bold',
-            padding: isMobile ? [4, 9] : [3, 9],
+            padding: [3, 9],
             borderRadius: 3,
           },
           warn: {
             backgroundColor: 'rgba(245, 158, 11, 0.18)',
             color: '#f59e0b',
-            fontSize: isMobile ? 11 : 12,
+            fontSize: 12,
             fontWeight: 'bold',
-            padding: isMobile ? [3, 8] : [3, 9],
+            padding: [3, 9],
             borderRadius: 3,
             borderColor: '#f59e0b',
             borderWidth: 1,
@@ -234,6 +234,27 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
       };
     }
     titleItems.push(titleItem);
+  }
+  if (weakSellTag && isMobile) {
+    titleItems.push({
+      left: 8,
+      top: 56,
+      text: '{warn|' + weakSellTag + '}',
+      textStyle: {
+        rich: {
+          warn: {
+            backgroundColor: 'rgba(245, 158, 11, 0.18)',
+            color: '#f59e0b',
+            fontSize: 10,
+            fontWeight: 'bold',
+            padding: [3, 7],
+            borderRadius: 3,
+            borderColor: '#f59e0b',
+            borderWidth: 1,
+          },
+        },
+      },
+    });
   }
 
   const volMa5 = data.map((_, i) => {
@@ -565,7 +586,7 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           title: [{ textStyle: { fontSize: 13 } }],
           legend: { show: false },
           grid: [
-            { left: 8, right: 44, top: signalTag ? 60 : 36, height: '74%' },
+            { left: 8, right: 44, top: weakSellTag ? 84 : (signalTag ? 60 : 36), height: weakSellTag ? '70%' : '74%' },
             { left: 8, right: 44, top: 0, height: 0 },
             { left: 8, right: 44, top: 0, height: 0 },
           ],
@@ -611,8 +632,8 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
               onClick={() => setShowMomentumDetail(!showMomentumDetail)}
               title="点击查看动能分项明细"
               style={{
-                padding: isMobile ? '3px 8px' : '4px 12px',
-                fontSize: isMobile ? '11px' : '12px',
+                padding: isMobile ? '2px 6px' : '4px 12px',
+                fontSize: isMobile ? '10px' : '12px',
                 backgroundColor: themeGetMomentumColor(latestMomentum.score),
                 color: '#fff',
                 border: 'none',
@@ -621,11 +642,11 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
                 fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
+                gap: isMobile ? '3px' : '4px',
               }}
             >
               <span>{getMomentumIcon(latestMomentum.score)}</span>
-              <span>动能 {latestMomentum.score.toFixed(0)}</span>
+              <span>{isMobile ? latestMomentum.score.toFixed(0) : `动能 ${latestMomentum.score.toFixed(0)}`}</span>
               <span>{latestMomentum.level}</span>
             </button>
             {showMomentumDetail && (
