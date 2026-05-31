@@ -91,7 +91,16 @@ function HomePage() {
     return `${year}${month}${day}`;
   };
 
-  const [startDate, setStartDate] = useState('20250101');
+  const getDateMonthsAgo = (months) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - months);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
+  };
+
+  const [startDate, setStartDate] = useState(getDateMonthsAgo(6));
   const [endDate, setEndDate] = useState(getCurrentDate());
   const [loading, setLoading] = useState(false);
   const [stockData, setStockData] = useState(null);
@@ -178,8 +187,8 @@ function HomePage() {
 
   const trimDataForMobile = (data) => {
     if (!data?.data || !isMobileView()) return data;
-    if (data.data.length > 40) {
-      return { ...data, data: data.data.slice(-40) };
+    if (data.data.length > 30) {
+      return { ...data, data: data.data.slice(-30) };
     }
     return data;
   };
@@ -499,11 +508,11 @@ function HomePage() {
 
             <div className="chart-legend">
               <div className="legend-item">
-                <div className="legend-dot" style={{ background: '#ef4444' }}></div>
+                <div className="legend-dot" style={{ background: '#fa3e3e' }}></div>
                 <span>B 买入</span>
               </div>
               <div className="legend-item">
-                <div className="legend-dot" style={{ background: '#3b82f6' }}></div>
+                <div className="legend-dot" style={{ background: '#3a8eff' }}></div>
                 <span>S 卖出</span>
               </div>
             </div>
