@@ -227,14 +227,32 @@ function HomePage() {
     setSymbol(targetCode);
     setLoading(true);
     try {
-      const data = await apiFetchStockData(targetCode, startDate, endDate, rsiPeriod);
-      setStockData(trimDataForMobile(data));
-      setStockDataV2(null);
+      if (activeChart === 'kline2') {
+        const [defaultResult, aggressiveResult] = await Promise.allSettled([
+          apiFetchStockData(targetCode, startDate, endDate, rsiPeriod),
+          apiFetchExperimentalStock(targetCode, startDate, endDate, rsiPeriod),
+        ]);
+        if (defaultResult.status === 'fulfilled') {
+          setStockData(trimDataForMobile(defaultResult.value));
+        } else {
+          throw defaultResult.reason;
+        }
+        if (aggressiveResult.status === 'fulfilled') {
+          setStockDataV2(trimDataForMobile(aggressiveResult.value));
+        } else {
+          setStockDataV2(null);
+          console.error('激进策略数据加载失败:', aggressiveResult.reason);
+        }
+      } else {
+        const data = await apiFetchStockData(targetCode, startDate, endDate, rsiPeriod);
+        setStockData(trimDataForMobile(data));
+        setStockDataV2(null);
+      }
     } catch (e) {
       alert(e.message || '获取数据失败，请确保后端服务已启动');
     }
     setLoading(false);
-  }, [symbol, startDate, endDate, rsiPeriod]);
+  }, [symbol, startDate, endDate, rsiPeriod, activeChart]);
 
   const fetchV2Data = async (code = symbol) => {
     if (!code) {
