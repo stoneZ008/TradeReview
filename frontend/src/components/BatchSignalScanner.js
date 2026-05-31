@@ -167,6 +167,14 @@ export default function BatchSignalScanner({ onStockSelect, results, setResults,
   const [error, setError] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [presetLoaded, setPresetLoaded] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+  const [autoScanned, setAutoScanned] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     if (presetLoaded) return;
@@ -184,23 +192,23 @@ export default function BatchSignalScanner({ onStockSelect, results, setResults,
   const buyCount = useMemo(() => results.filter(r => r.has_signal_today && r.last_signal === 1).length, [results]);
   const sellCount = useMemo(() => results.filter(r => r.has_signal_today && r.last_signal === -1).length, [results]);
 
+  const todaySignalRows = useMemo(() => results.filter(r => r.has_signal_today), [results]);
+
   const toggleGroup = (key) => {
     setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleScan = async () => {
+  const runScanWithText = async (text) => {
     setError('');
     setResults([]);
 
     let parsed;
     try {
-      parsed = JSON.parse(effectiveJsonText);
+      parsed = JSON.parse(text);
     } catch (e) {
       setError('JSON 格式错误：' + e.message);
       return;
     }
-
-    saveBatchScanPreset(effectiveJsonText).catch(() => {});
 
     const stocks = parseNestedStocks(parsed);
     if (stocks.length === 0) {
@@ -235,6 +243,182 @@ export default function BatchSignalScanner({ onStockSelect, results, setResults,
     }
     setLoading(false);
   };
+
+  const handleScan = async () => {
+    saveBatchScanPreset(effectiveJsonText).catch(() => {});
+    await runScanWithText(effectiveJsonText);
+  };
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (!presetLoaded) return;
+    if (autoScanned) return;
+    if (results && results.length > 0) {
+      setAutoScanned(true);
+      return;
+    }
+    setAutoScanned(true);
+    runScanWithText(effectiveJsonText);
+  }, [isMobile, presetLoaded, autoScanned, results, effectiveJsonText]);
+
+  if (isMobile) {
+    return (
+      <div style={{
+        minHeight: 'calc(100vh - 140px)',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '12px',
+        gap: '10px',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
+        }}>
+          <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '15px' }}>📊 个股洞察</h3>
+          <button
+            className="btn btn-secondary"
+            onClick={handleScan}
+            disabled={loading}
+            style={{ fontSize: '12px', padding: '6px 12px' }}
+          >
+            {loading ? '扫描中...' : '🔄 重新扫描'}
+          </button>
+        </div>
+
+        {results.length > 0 && (
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '10px',
+            fontSize: '12px',
+            color: 'var(--text-secondary)',
+          }}>
+            <span>共 {results.length} 只</span>
+            <span style={{ color: '#fbbf24', fontWeight: 600 }}>⭐ 今日 {signalCount}</span>
+            <span style={{ color: '#ef4444', fontWeight: 600 }}>B {buyCount}</span>
+            <span style={{ color: '#3b82f6', fontWeight: 600 }}>S {sellCount}</span>
+          </div>
+        )}
+
+        {error && (
+          <div style={{
+            padding: '8px 12px',
+            background: 'rgba(239,68,68,0.1)',
+            color: '#ef4444',
+            borderRadius: '4px',
+            fontSize: '12px',
+          }}>{error}</div>
+        )}
+
+        <div style={{
+          flex: 1,
+          minHeight: 200,
+          overflow: 'auto',
+          border: '1px solid var(--border-color)',
+          borderRadius: '6px',
+        }}>
+          {loading && results.length === 0 && (
+            <div style={{
+              textAlign: 'center',
+              padding: '40px 16px',
+              color: 'var(--text-secondary)',
+            }}>
+              <div className="spinner" style={{ margin: '0 auto 12px' }}></div>
+              <p style={{ fontSize: '13px' }}>正在扫描股票池，请稍候...</p>
+            </div>
+          )}
+
+          {!loading && results.length === 0 && (
+            <div style={{
+              textAlign: 'center',
+              padding: '40px 16px',
+              color: 'var(--text-secondary)',
+            }}>
+              <div style={{ fontSize: '36px', marginBottom: '8px' }}>📋</div>
+              <p style={{ fontSize: '13px' }}>
+                {presetLoaded ? '暂无扫描结果，请在 PC 端配置股票池' : '加载中...'}
+              </p>
+            </div>
+          )}
+
+          {!loading && results.length > 0 && todaySignalRows.length === 0 && (
+            <div style={{
+              textAlign: 'center',
+              padding: '40px 16px',
+              color: 'var(--text-secondary)',
+            }}>
+              <div style={{ fontSize: '36px', marginBottom: '8px' }}>😴</div>
+              <p style={{ fontSize: '13px' }}>今日暂无信号股票</p>
+            </div>
+          )}
+
+          {todaySignalRows.length > 0 && (
+            <table className="batch-scan-mobile-table" style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '13px',
+              color: 'var(--text-primary)',
+            }}>
+              <thead style={{
+                position: 'sticky',
+                top: 0,
+                background: 'var(--bg-secondary)',
+                zIndex: 1,
+              }}>
+                <tr>
+                  <th style={{ ...thStyle, padding: '8px 6px', fontSize: '12px' }}>名称</th>
+                  <th style={{ ...thStyle, padding: '8px 6px', fontSize: '12px', textAlign: 'right' }}>涨跌幅</th>
+                  <th style={{ ...thStyle, padding: '8px 6px', fontSize: '12px' }}>信号</th>
+                  <th style={{ ...thStyle, padding: '8px 6px', fontSize: '12px' }}>所属</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todaySignalRows.map((row) => (
+                  <tr
+                    key={row.stock_code}
+                    onClick={() => onStockSelect && onStockSelect(row.stock_code)}
+                    style={{
+                      cursor: 'pointer',
+                      borderTop: '1px solid var(--border-color)',
+                      background: 'rgba(251, 191, 36, 0.08)',
+                    }}
+                  >
+                    <td style={{ ...tdStyle, padding: '8px 6px', whiteSpace: 'normal' }}>
+                      <div style={{ fontWeight: 600 }}>{row.stock_name}</div>
+                    </td>
+                    <td style={{
+                      ...tdStyle,
+                      padding: '8px 6px',
+                      textAlign: 'right',
+                      color: pctColor(row.pct_change),
+                      fontWeight: 600,
+                    }}>
+                      {formatPct(row.pct_change)}
+                    </td>
+                    <td style={{ ...tdStyle, padding: '8px 6px' }}>{signalBadge(row.last_signal)}</td>
+                    <td style={{
+                      ...tdStyle,
+                      padding: '8px 6px',
+                      whiteSpace: 'normal',
+                      color: 'var(--text-secondary)',
+                      fontSize: '11px',
+                    }}>
+                      <div>{row.industry || '-'}</div>
+                      {row.sub_industry && (
+                        <div style={{ color: 'var(--text-tertiary, #888)' }}>{row.sub_industry}</div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{

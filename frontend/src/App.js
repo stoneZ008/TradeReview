@@ -514,7 +514,7 @@ function HomePage() {
               <button className={`tab mobile-hidden ${activeChart === 'kdj' ? 'active' : ''}`} onClick={() => handleChartChange('kdj')}>
                 KDJ
               </button>
-              <button className={`tab mobile-hidden ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => handleChartChange('signals')}>
+              <button className={`tab ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => handleChartChange('signals')}>
                 信号扫描
               </button>
               {backtestResult && (

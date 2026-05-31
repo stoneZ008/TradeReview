@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import KlineChart from '../components/KlineChart';
 import Watchlist from '../components/Watchlist';
+import WatchlistSignals from '../components/WatchlistSignals';
+import BatchSignalScanner from '../components/BatchSignalScanner';
 
 const sampleWatchlist = [
   { code: '600519', name: '贵州茅台' },
@@ -51,6 +53,11 @@ const sampleData = Array.from({ length: 60 }, (_, i) => {
 
 export default function MobileTestPage() {
   const [stock, setStock] = useState(sampleWatchlist[0]);
+  const [activeChart, setActiveChart] = useState('kline');
+  const [activePage, setActivePage] = useState('shu');
+  const [scanResults, setScanResults] = useState([]);
+  const [scanJsonText, setScanJsonText] = useState('');
+
   const stockData = {
     name: stock.name,
     data: sampleData,
@@ -66,40 +73,95 @@ export default function MobileTestPage() {
           <div className="logo-icon">📈</div>
           <span className="logo-text">移动端测试</span>
         </div>
-        <div className="controls">
-          <div className="input-group">
-            <label>股票代码</label>
-            <input className="input" value={stock.code} readOnly />
-          </div>
-          <button className="btn btn-primary">获取数据</button>
-          <button className="btn btn-watchlist-add">加入自选</button>
+        <div className="nav-tabs">
+          <button
+            className={`nav-tab ${activePage === 'scan' ? 'active' : ''}`}
+            onClick={() => setActivePage('scan')}
+          >
+            个股洞察
+          </button>
+          <button
+            className={`nav-tab ${activePage === 'shu' ? 'active' : ''}`}
+            onClick={() => setActivePage('shu')}
+          >
+            执行之术
+          </button>
         </div>
+        {activePage === 'shu' && (
+          <div className="controls">
+            <div className="input-group">
+              <label>股票代码</label>
+              <input className="input" value={stock.code} readOnly />
+            </div>
+            <button className="btn btn-primary">获取数据</button>
+            <button className="btn btn-watchlist-add">加入自选</button>
+          </div>
+        )}
       </header>
-      <div className="main-content">
-        <Watchlist watchlist={sampleWatchlist} onSelect={setStock} onRemove={(code, e) => e.stopPropagation()} />
-        <div className="chart-section">
-          <div className="chart-tabs">
-            <button className="tab active">默认策略</button>
-            <button className="tab">激进策略</button>
-            <button className="tab mobile-hidden">RSI</button>
-            <button className="tab mobile-hidden">KDJ</button>
-            <button className="tab mobile-hidden">信号扫描</button>
+
+      {activePage === 'scan' ? (
+        <BatchSignalScanner
+          onStockSelect={(code) => {
+            const found = sampleWatchlist.find((s) => s.code === code) || { code, name: code };
+            setStock(found);
+            setActivePage('shu');
+            setActiveChart('kline');
+          }}
+          results={scanResults}
+          setResults={setScanResults}
+          jsonText={scanJsonText}
+          setJsonText={setScanJsonText}
+        />
+      ) : (
+        <div className="main-content">
+          <Watchlist watchlist={sampleWatchlist} onSelect={setStock} onRemove={(code, e) => e.stopPropagation()} />
+          <div className="chart-section">
+            <div className="chart-tabs">
+              <button
+                className={`tab ${activeChart === 'kline' ? 'active' : ''}`}
+                onClick={() => setActiveChart('kline')}
+              >
+                默认策略
+              </button>
+              <button
+                className={`tab ${activeChart === 'kline2' ? 'active' : ''}`}
+                onClick={() => setActiveChart('kline2')}
+              >
+                激进策略
+              </button>
+              <button className="tab mobile-hidden">RSI</button>
+              <button className="tab mobile-hidden">KDJ</button>
+              <button
+                className={`tab ${activeChart === 'signals' ? 'active' : ''}`}
+                onClick={() => setActiveChart('signals')}
+              >
+                信号扫描
+              </button>
+            </div>
+            <div className="chart-legend">
+              <div className="legend-item"><div className="legend-dot" style={{ background: '#ef4444' }}></div><span>B 买入</span></div>
+              <div className="legend-item"><div className="legend-dot" style={{ background: '#3b82f6' }}></div><span>S 卖出</span></div>
+            </div>
+            <div className="chart-container">
+              {activeChart === 'signals' ? (
+                <WatchlistSignals onStockSelect={(code) => {
+                  const found = sampleWatchlist.find((s) => s.code === code) || { code, name: code };
+                  setStock(found);
+                  setActiveChart('kline');
+                }} />
+              ) : (
+                <KlineChart stockData={stockData} symbol={stock.code} hideLegendItems={['K线', 'MACD柱']} forceMobile />
+              )}
+            </div>
           </div>
-          <div className="chart-legend">
-            <div className="legend-item"><div className="legend-dot" style={{ background: '#ef4444' }}></div><span>B 买入</span></div>
-            <div className="legend-item"><div className="legend-dot" style={{ background: '#3b82f6' }}></div><span>S 卖出</span></div>
-          </div>
-          <div className="chart-container">
-            <KlineChart stockData={stockData} symbol={stock.code} hideLegendItems={['K线', 'MACD柱']} forceMobile />
+          <div className="sidebar">
+            <div className="sidebar-tabs">
+              <button className="sidebar-tab active">买卖信号</button>
+              <button className="sidebar-tab">回测结果</button>
+            </div>
           </div>
         </div>
-        <div className="sidebar">
-          <div className="sidebar-tabs">
-            <button className="sidebar-tab active">买卖信号</button>
-            <button className="sidebar-tab">回测结果</button>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
