@@ -95,7 +95,7 @@ export default function WatchlistSignals({ onStockSelect }) {
           <h3 className="watchlist-signals-title" style={{ margin: 0, color: 'var(--text-primary)' }}>📊 自选股信号扫描</h3>
           {snapshotDate && (
             <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-              快照日期：{formatDate(snapshotDate)}
+              {formatDate(snapshotDate)}
             </span>
           )}
           <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>

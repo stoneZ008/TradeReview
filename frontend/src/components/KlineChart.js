@@ -3,6 +3,26 @@ import ReactECharts from 'echarts-for-react';
 import { detectMACDDivergence } from '../utils/divergence';
 import THEME, { getMomentumColor as themeGetMomentumColor, formatVolume } from '../utils/chartTheme';
 
+const STRONG_TREND_LEVELS_KLINE = new Set(['强势', '极强']);
+const WEAK_SELL_SCORE_MAX_KLINE = 0.30;
+
+function klineIsStrongTrend(d) {
+  if (!d) return false;
+  if (d.momentum_level && STRONG_TREND_LEVELS_KLINE.has(d.momentum_level)) return true;
+  const { close, ma5, ma10, ma20, macd_hist } = d;
+  if ([close, ma5, ma10, ma20].some((v) => v == null)) return false;
+  const aligned = close > ma5 && ma5 > ma10 && ma10 > ma20;
+  const macdOk = macd_hist == null ? true : macd_hist > 0;
+  return aligned && macdOk;
+}
+
+function klineIsWeakSell(d) {
+  if (!d || d.signal !== -1) return false;
+  const score = Number(d.sell_score);
+  if (!isFinite(score)) return false;
+  return score < WEAK_SELL_SCORE_MAX_KLINE && klineIsStrongTrend(d);
+}
+
 export default function KlineChart({ stockData, symbol, titleSuffix = '', showLatestInfo = false, hideLegendItems = [], forceMobile = false }) {
   const [showSupport, setShowSupport] = useState(false);
   const [showResistance, setShowResistance] = useState(false);
@@ -85,6 +105,17 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
     .map((d) => {
       const score = d.sell_score || 0;
       const size = isMobile ? Math.max(22, Math.min(30, 18 + score * 48)) : Math.max(12, Math.min(20, 12 + score * 32));
+      const weak = klineIsWeakSell(d);
+      if (weak) {
+        return {
+          name: 'S',
+          coord: [d.date, d.high],
+          symbol: 'circle',
+          symbolSize: size,
+          label: { show: true, formatter: 'S!', color: '#fff', fontSize: isMobile ? 11 : 9, fontWeight: 'bold' },
+          itemStyle: { color: THEME.warning || '#f59e0b', borderColor: '#fff', borderWidth: isMobile ? 2 : 1, shadowBlur: 10, shadowColor: 'rgba(245,158,11,0.7)' },
+        };
+      }
       return {
         name: 'S',
         coord: [d.date, d.high],
@@ -121,6 +152,7 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
   let signalTag = '';
   let signalColor = '';
   let signalBg = '';
+  let weakSellTag = '';
   const adviceText = stockData.trade_advice
     ? ` | 止损 ${stockData.trade_advice.stop_loss} 止盈 ${stockData.trade_advice.take_profit} 加仓 ${stockData.trade_advice.add_price}`
     : '';
@@ -135,6 +167,9 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
         signalTag = isMobile ? `${dateStr} 卖点 强度${((data[i].sell_score || 0) * 100).toFixed(0)}%` : dateStr + ' 出现卖点';
         signalColor = '#fff';
         signalBg = THEME.sellBlue;
+        if (klineIsWeakSell(data[i])) {
+          weakSellTag = '⚠️ 强趋势中弱卖点，建议减仓 1/3';
+        }
       }
       break;
     }
@@ -155,11 +190,37 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
     },
   ];
   if (signalTag) {
-      titleItems.push({
-      text: '{tag|' + signalTag + '}',
+    const titleItem = {
       left: isMobile ? 8 : 12,
       top: isMobile ? 30 : 32,
-      textStyle: {
+    };
+    if (weakSellTag) {
+      titleItem.text = '{tag|' + signalTag + '}  {warn|' + weakSellTag + '}';
+      titleItem.textStyle = {
+        rich: {
+          tag: {
+            backgroundColor: signalBg,
+            color: signalColor,
+            fontSize: isMobile ? 12 : 12,
+            fontWeight: 'bold',
+            padding: isMobile ? [4, 9] : [3, 9],
+            borderRadius: 3,
+          },
+          warn: {
+            backgroundColor: 'rgba(245, 158, 11, 0.18)',
+            color: '#f59e0b',
+            fontSize: isMobile ? 11 : 12,
+            fontWeight: 'bold',
+            padding: isMobile ? [3, 8] : [3, 9],
+            borderRadius: 3,
+            borderColor: '#f59e0b',
+            borderWidth: 1,
+          },
+        },
+      };
+    } else {
+      titleItem.text = '{tag|' + signalTag + '}';
+      titleItem.textStyle = {
         rich: {
           tag: {
             backgroundColor: signalBg,
@@ -170,8 +231,9 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
             borderRadius: 3,
           },
         },
-      },
-    });
+      };
+    }
+    titleItems.push(titleItem);
   }
 
   const volMa5 = data.map((_, i) => {
@@ -244,6 +306,9 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
             html += `<div style="color:${THEME.up};margin-top:4px;font-weight:bold">买入信号 强度: ${(dataItem.buy_score * 100).toFixed(1)}%</div>`;
           } else if (dataItem.signal === -1) {
             html += `<div style="color:${THEME.sellBlue};margin-top:4px;font-weight:bold">卖出信号 强度: ${(dataItem.sell_score * 100).toFixed(1)}%</div>`;
+            if (klineIsWeakSell(dataItem)) {
+              html += `<div style="color:#f59e0b;margin-top:4px;font-weight:bold;padding:3px 6px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.5);border-radius:4px">⚠️ 强趋势中弱卖点，建议减仓 1/3</div>`;
+            }
           }
         }
         if (dataItem && dataItem.momentum_score !== null && dataItem.momentum_score !== undefined) {
