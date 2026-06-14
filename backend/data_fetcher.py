@@ -518,16 +518,29 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
             ("东方财富", lambda: _fetch_eastmoney_us(symbol, start_date, end_date, adjust)),
             ("yfinance", lambda: _fetch_yfinance(symbol, start_date, end_date)),
         ]
+        best_df = pd.DataFrame()
+        best_name = None
         for name, fn in us_fetchers:
             try:
                 df = fn()
                 if df is not None and not df.empty:
+                    # 数据条数低于阈值视为不完整，记录但继续尝试更优数据源
+                    if len(df) < 10:
+                        print(f"{name} 返回数据过少 ({len(df)} 条)，尝试下一源")
+                        if len(df) > len(best_df):
+                            best_df, best_name = df, name
+                        continue
                     print(f"美股 {symbol} 数据源: {name}, 共 {len(df)} 条")
                     _cache_set(cache_key, df)
                     return df
                 print(f"{name} 返回空数据")
             except Exception as e:
                 print(f"{name} 异常: {e}")
+        # 所有源都不完整时，退而求其次返回最大那份
+        if not best_df.empty:
+            print(f"美股 {symbol} 退化数据源: {best_name}, 共 {len(best_df)} 条")
+            _cache_set(cache_key, best_df)
+            return best_df
         raise requests.exceptions.RequestException(
             f"获取美股 {symbol} 数据失败（所有数据源均不可用，可能是API限流，稍后重试）。" f"代码示例：AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA"
         )
@@ -539,10 +552,17 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
         ("新浪", lambda: _fetch_sina(symbol, start_date, end_date)),
     ]
     df = pd.DataFrame()
+    best_df = pd.DataFrame()
+    best_name = None
     for name, fn in a_fetchers:
         try:
             df = fn()
             if df is not None and not df.empty:
+                if len(df) < 10:
+                    print(f"{name} A股返回数据过少 ({len(df)} 条)，尝试下一源")
+                    if len(df) > len(best_df):
+                        best_df, best_name = df, name
+                    continue
                 print(f"A股 {symbol} 数据源: {name}, 共 {len(df)} 条")
                 break
             print(f"{name} 返回空数据")
@@ -551,8 +571,12 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
         except Exception as e:
             print(f"{name} 获取失败: {e}")
 
-    if df is None or df.empty:
-        raise requests.exceptions.RequestException(f"获取 {symbol} 数据失败")
+    if df is None or df.empty or len(df) < 10:
+        if not best_df.empty:
+            print(f"A股 {symbol} 退化数据源: {best_name}, 共 {len(best_df)} 条")
+            df = best_df
+        else:
+            raise requests.exceptions.RequestException(f"获取 {symbol} 数据失败")
 
     # 盘中：若末尾不是当日，用新浪实时行情拼一根当日 K 线
     df = _append_intraday_kline_a(symbol, df)

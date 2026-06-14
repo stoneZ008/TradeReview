@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import time
 import functools
 import os
@@ -30,9 +31,14 @@ _last_request_time = 0
 def _safe_float(value, default=0.0):
     """安全转换为浮点数"""
     try:
-        if pd.isna(value) or value is None:
+        if value is None:
             return default
-        if isinstance(value, (int, float)):
+        try:
+            if pd.isna(value):
+                return default
+        except (ValueError, TypeError):
+            pass
+        if isinstance(value, (int, float, np.integer, np.floating)):
             return float(value)
         if isinstance(value, str):
             value = value.replace("%", "").replace("亿", "").replace("万", "")
@@ -439,6 +445,46 @@ def _format_turnover_yi(turnover_yi):
     return f"{v:.0f}亿"
 
 
+@safe_akshare_call(default_return=0.0)
+def _fetch_turnover_from_index_em():
+    """从东方财富指数实时行情获取沪深成交额（单位：亿元）"""
+    if ak is None:
+        return 0.0
+    df = ak.stock_zh_index_spot_em(symbol="沪深重要指数")
+    if df is None or len(df) == 0:
+        return 0.0
+    sh_row = df[df["代码"] == "000001"]
+    sz_row = df[df["代码"] == "399001"]
+    if sh_row.empty or sz_row.empty:
+        return 0.0
+    sh_turnover = _safe_float(sh_row.iloc[0].get("成交额", 0))
+    sz_turnover = _safe_float(sz_row.iloc[0].get("成交额", 0))
+    total = sh_turnover + sz_turnover
+    if total <= 0:
+        return 0.0
+    return round(total / 1e8, 2)
+
+
+@safe_akshare_call(default_return=0.0)
+def _fetch_turnover_from_index_sina():
+    """从新浪指数实时行情获取沪深成交额（单位：亿元）"""
+    if ak is None:
+        return 0.0
+    df = ak.stock_zh_index_spot_sina()
+    if df is None or len(df) == 0:
+        return 0.0
+    sh_row = df[df["代码"] == "sh000001"]
+    sz_row = df[df["代码"] == "sz399001"]
+    if sh_row.empty or sz_row.empty:
+        return 0.0
+    sh_turnover = _safe_float(sh_row.iloc[0].get("成交额", 0))
+    sz_turnover = _safe_float(sz_row.iloc[0].get("成交额", 0))
+    total = sh_turnover + sz_turnover
+    if total <= 0:
+        return 0.0
+    return round(total / 1e8, 2)
+
+
 @safe_akshare_call(default_return=None)
 def _fetch_market_activity():
     """获取市场活跃度（成交额、上涨家数等）"""
@@ -550,11 +596,34 @@ def get_market_metrics():
         with _cache_lock:
             return _cached_data.get(cache_key)
 
-    activity = _fetch_market_activity() or {}
-    total_turnover_yi = _safe_float(activity.get("total_turnover_yi"), 0.0)
+    total_turnover_yi = 0.0
+    turnover_source = ""
+
+    turnover_yi = _fetch_turnover_from_index_em()
+    if turnover_yi and turnover_yi > 0:
+        total_turnover_yi = turnover_yi
+        turnover_source = "em_index"
 
     if total_turnover_yi <= 0:
-        total_turnover_yi = _fetch_total_turnover_fallback() or 0.0
+        turnover_yi = _fetch_turnover_from_index_sina()
+        if turnover_yi and turnover_yi > 0:
+            total_turnover_yi = turnover_yi
+            turnover_source = "sina_index"
+
+    if total_turnover_yi <= 0:
+        activity_data = _fetch_market_activity() or {}
+        turnover_yi = _safe_float(activity_data.get("total_turnover_yi"), 0.0)
+        if turnover_yi > 0:
+            total_turnover_yi = turnover_yi
+            turnover_source = "legu"
+
+    if total_turnover_yi <= 0:
+        turnover_yi = _fetch_total_turnover_fallback() or 0.0
+        if turnover_yi > 0:
+            total_turnover_yi = turnover_yi
+            turnover_source = "em_spot"
+
+    activity = _fetch_market_activity() or {}
 
     sh_df = _fetch_index_history("sh000001")
     hs300_df = _fetch_index_history("sh000300")
@@ -562,6 +631,7 @@ def get_market_metrics():
     metrics = {
         "total_turnover_yi": round(total_turnover_yi, 2),
         "total_turnover_text": _format_turnover_yi(total_turnover_yi),
+        "turnover_source": turnover_source,
         "up_ratio": activity.get("up_ratio", 0.0),
         "up_count": activity.get("up_count", 0),
         "down_count": activity.get("down_count", 0),
@@ -585,6 +655,7 @@ def get_mock_market_metrics():
     return {
         "total_turnover_yi": 12345.6,
         "total_turnover_text": "1.23万亿",
+        "turnover_source": "mock",
         "up_ratio": 0.65,
         "up_count": 3200,
         "down_count": 1700,

@@ -1,13 +1,15 @@
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-card: #16213e;
-  --border: #2a2a4a;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --accent: #3b82f6;
-  --up-color: #ef4444;
-  --down-color: #22c55e;
+  --bg-primary: #0a0e17;
+  --bg-secondary: #111722;
+  --bg-card: #141d2e;
+  --border: #243044;
+  --text-primary: #e4e7ed;
+  --text-secondary: #8a93a6;
+  --accent: #c98a2a;
+  --accent-hover: #a86f1c;
+  --accent-soft: #e4b96a;
+  --up-color: #fa3e3e;
+  --down-color: #00b07c;
   --warning: #f59e0b;
 }
 
@@ -328,15 +330,17 @@ body {
 
 .btn-primary {
   background: var(--accent);
-  color: white;
+  color: #fff;
+  font-weight: 600;
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  background: var(--accent-hover);
 }
 
 .btn-primary:disabled {
   background: #374151;
+  color: #9ca3af;
   cursor: not-allowed;
 }
 
@@ -459,8 +463,10 @@ body {
 
 .signal-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 6px 12px;
   padding: 12px;
   background: var(--bg-card);
   border-radius: 8px;
@@ -509,6 +515,21 @@ body {
   padding: 2px 8px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.1);
+}
+
+.signal-hint {
+  flex-basis: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.signal-hint-weak-sell {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: var(--warning);
+  font-weight: 600;
 }
 
 .metrics-grid {
@@ -760,6 +781,7 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  font-weight: 600;
 }
 
 .nav-tab-disabled {
@@ -1913,6 +1935,22 @@ body {
   display: none !important;
 }
 
+.mobile-test-page .watchlist-signals-title {
+  display: none;
+}
+
+.mobile-test-page .watchlist-signals-table .col-code,
+.mobile-test-page .watchlist-signals-table .col-close,
+.mobile-test-page .watchlist-signals-table .col-date {
+  display: none;
+}
+
+.mobile-test-page .watchlist-signals-table th,
+.mobile-test-page .watchlist-signals-table td {
+  padding: 8px 6px;
+  font-size: 12px;
+}
+
 .mobile-test-page .chart-container {
   flex: none;
   height: 380px;
@@ -2202,6 +2240,22 @@ body {
   }
 
   .mobile-test-page .sidebar {
+    display: none;
+  }
+
+  .watchlist-signals-table .col-code,
+  .watchlist-signals-table .col-close,
+  .watchlist-signals-table .col-date {
+    display: none;
+  }
+
+  .watchlist-signals-table th,
+  .watchlist-signals-table td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+
+  .watchlist-signals-title {
     display: none;
   }
 }

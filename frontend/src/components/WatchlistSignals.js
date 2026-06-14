@@ -92,10 +92,10 @@ export default function WatchlistSignals({ onStockSelect }) {
         gap: '12px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>📊 自选股信号扫描</h3>
+          <h3 className="watchlist-signals-title" style={{ margin: 0, color: 'var(--text-primary)' }}>📊 自选股信号扫描</h3>
           {snapshotDate && (
             <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-              快照日期：{formatDate(snapshotDate)}
+              {formatDate(snapshotDate)}
             </span>
           )}
           <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
@@ -124,7 +124,7 @@ export default function WatchlistSignals({ onStockSelect }) {
       )}
 
       <div style={{ flex: 1, overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px' }}>
-        <table style={{
+        <table className="watchlist-signals-table" style={{
           width: '100%',
           borderCollapse: 'collapse',
           fontSize: '13px',
@@ -137,12 +137,12 @@ export default function WatchlistSignals({ onStockSelect }) {
             zIndex: 1,
           }}>
             <tr>
-              <th style={thStyle}>代码</th>
+              <th className="col-code" style={thStyle}>代码</th>
               <th style={thStyle}>名称</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>最近收盘价</th>
+              <th className="col-close" style={{ ...thStyle, textAlign: 'right' }}>最近收盘价</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>涨跌幅</th>
               <th style={thStyle}>最近信号</th>
-              <th style={thStyle}>信号日期</th>
+              <th className="col-date" style={thStyle}>信号日期</th>
               <th style={{ ...thStyle, textAlign: 'center' }}>今日触发</th>
             </tr>
           </thead>
@@ -166,16 +166,16 @@ export default function WatchlistSignals({ onStockSelect }) {
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59,130,246,0.08)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = row.has_signal_today ? 'rgba(251, 191, 36, 0.08)' : 'transparent'}
               >
-                <td style={tdStyle}>{row.stock_code}</td>
+                <td className="col-code" style={tdStyle}>{row.stock_code}</td>
                 <td style={tdStyle}>{row.stock_name}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>
+                <td className="col-close" style={{ ...tdStyle, textAlign: 'right' }}>
                   {row.close_price !== null ? row.close_price.toFixed(2) : '-'}
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right', color: pctColor(row.pct_change), fontWeight: 600 }}>
                   {formatPct(row.pct_change)}
                 </td>
                 <td style={tdStyle}>{signalBadge(row.last_signal)}</td>
-                <td style={tdStyle}>{row.last_signal_date || '-'}</td>
+                <td className="col-date" style={tdStyle}>{row.last_signal_date || '-'}</td>
                 <td style={{ ...tdStyle, textAlign: 'center' }}>
                   {row.has_signal_today ? (
                     <span style={{ color: '#fbbf24', fontSize: '16px' }}>⭐</span>

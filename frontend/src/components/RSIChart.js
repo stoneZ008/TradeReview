@@ -1,4 +1,5 @@
 import ReactECharts from 'echarts-for-react';
+import THEME from '../utils/chartTheme';
 
 export default function RSIChart({ stockData, symbol }) {
   if (!stockData?.data) return null;
@@ -13,7 +14,7 @@ export default function RSIChart({ stockData, symbol }) {
       name: '买入',
       xAxis: d.date,
       yAxis: d.rsi,
-      itemStyle: { color: '#22c55e' },
+      itemStyle: { color: THEME.up },
       value: d.rsi,
     }));
 
@@ -23,29 +24,31 @@ export default function RSIChart({ stockData, symbol }) {
       name: '卖出',
       xAxis: d.date,
       yAxis: d.rsi,
-      itemStyle: { color: '#ef4444' },
+      itemStyle: { color: THEME.sellBlue },
       value: d.rsi,
     }));
 
   const option = {
-    backgroundColor: '#0f0f1a',
+    backgroundColor: THEME.bg,
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(26, 26, 46, 0.9)',
-      borderColor: '#2a2a4a',
-      textStyle: { color: '#fff' },
+      backgroundColor: 'rgba(17, 23, 34, 0.95)',
+      borderColor: THEME.border,
+      borderWidth: 1,
+      textStyle: { color: THEME.textPrimary, fontSize: 12 },
+      extraCssText: 'border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);',
       formatter: function (params) {
         const date = params[0]?.axisValue;
-        let html = `<div style="padding: 8px">
-          <div style="font-weight: bold; margin-bottom: 4px">${stockData.name || ''} (${symbol})</div>
-          <div style="font-size: 12px; color: #a0a0a0; margin-bottom: 8px">${date || ''}</div>`;
+        let html = `<div style="padding:8px 10px">
+          <div style="font-weight:bold;margin-bottom:4px;color:${THEME.titleGold}">${stockData.name || ''} (${symbol})</div>
+          <div style="font-size:11px;color:${THEME.textSecondary};margin-bottom:6px">${date || ''}</div>`;
         params.forEach((p) => {
           if (p.seriesName === 'RSI' && p.data != null) {
-            html += `<div style="color: #a78bfa">RSI: ${p.data.toFixed(2)}</div>`;
+            html += `<div style="color:${THEME.ma20}">RSI: ${p.data.toFixed(2)}</div>`;
           } else if (p.seriesName === '买入信号' && p.data != null) {
-            html += `<div style="color: #22c55e">🔴 买入信号</div>`;
+            html += `<div style="color:${THEME.up}">● 买入信号</div>`;
           } else if (p.seriesName === '卖出信号' && p.data != null) {
-            html += `<div style="color: #ef4444">🔴 卖出信号</div>`;
+            html += `<div style="color:${THEME.sellBlue}">● 卖出信号</div>`;
           }
         });
         html += '</div>';
@@ -54,33 +57,44 @@ export default function RSIChart({ stockData, symbol }) {
     },
     legend: {
       data: ['RSI', '买入信号', '卖出信号'],
-      textStyle: { color: '#fff' },
+      textStyle: { color: THEME.textSecondary, fontSize: 11 },
       top: 0,
     },
-    grid: { left: '10%', right: '5%', top: '12%', bottom: '15%' },
+    grid: { left: '8%', right: '8%', top: '12%', bottom: '15%' },
     xAxis: {
       type: 'category',
       data: dates,
-      axisLine: { lineStyle: { color: '#2a2a4a' } },
+      axisLine: { lineStyle: { color: THEME.border } },
+      axisLabel: { color: THEME.textSecondary },
     },
     yAxis: {
       min: 0,
       max: 100,
-      splitLine: { lineStyle: { color: '#2a2a4a' } },
+      position: 'right',
+      splitLine: { lineStyle: { color: THEME.grid, type: 'dashed', opacity: 0.5 } },
       axisLabel: {
+        color: THEME.textSecondary,
         formatter: '{value}',
       },
     },
     dataZoom: [
-      { type: 'inside', start: 50, end: 100 },
-      { type: 'slider', bottom: 0, height: 20 },
+      { type: 'inside', start: 0, end: 100 },
+      {
+        type: 'slider',
+        bottom: 0,
+        height: 18,
+        borderColor: THEME.border,
+        fillerColor: 'rgba(228, 185, 106, 0.15)',
+        handleStyle: { color: THEME.titleGold, borderColor: THEME.titleGold },
+        textStyle: { color: THEME.textSecondary, fontSize: 10 },
+      },
     ],
     series: [
       {
         name: 'RSI',
         type: 'line',
         data: rsiValues,
-        lineStyle: { color: '#a78bfa' },
+        lineStyle: { color: THEME.ma20, width: 1.8 },
         symbol: 'none',
         z: 2,
         markLine: {
@@ -88,9 +102,9 @@ export default function RSIChart({ stockData, symbol }) {
           lineStyle: { type: 'dashed', width: 1 },
           label: { show: true, color: '#fff', fontSize: 10 },
           data: [
-            { yAxis: 70, lineStyle: { color: '#ef4444' }, label: { formatter: '超买 70' } },
-            { yAxis: 50, lineStyle: { color: '#666' }, label: { formatter: '中轴 50' } },
-            { yAxis: 30, lineStyle: { color: '#22c55e' }, label: { formatter: '超卖 30' } },
+            { yAxis: 70, lineStyle: { color: THEME.up }, label: { formatter: '超买 70' } },
+            { yAxis: 50, lineStyle: { color: THEME.textWeak }, label: { formatter: '中轴 50' } },
+            { yAxis: 30, lineStyle: { color: THEME.down }, label: { formatter: '超卖 30' } },
           ],
         },
       },
@@ -100,7 +114,7 @@ export default function RSIChart({ stockData, symbol }) {
         data: buySignals.map((s) => [s.xAxis, s.yAxis]),
         symbol: 'triangle',
         symbolSize: 12,
-        itemStyle: { color: '#22c55e', borderColor: '#fff', borderWidth: 1 },
+        itemStyle: { color: THEME.up, borderColor: '#fff', borderWidth: 1 },
         z: 3,
       },
       {
@@ -110,7 +124,7 @@ export default function RSIChart({ stockData, symbol }) {
         symbol: 'triangle',
         symbolRotate: 180,
         symbolSize: 12,
-        itemStyle: { color: '#ef4444', borderColor: '#fff', borderWidth: 1 },
+        itemStyle: { color: THEME.sellBlue, borderColor: '#fff', borderWidth: 1 },
         z: 3,
       },
     ],
