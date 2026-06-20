@@ -1,14 +1,18 @@
 from flask import request, jsonify
 
 from routes import hotspot_bp
-from hotspot_fetcher import get_industry_sectors, get_sector_stocks, clear_cache
+from hotspot_fetcher import get_industry_sectors, get_concept_sectors, get_sector_stocks, clear_cache
 from attribution_analyzer import analyze_stock_attribution, analyze_sector_attribution, get_market_overview
 
 
 @hotspot_bp.route("/hotspot/sectors", methods=["GET"])
 def get_sectors():
     limit = int(request.args.get("limit", 50))
-    sectors = get_industry_sectors(limit=limit)
+    sector_type = request.args.get("type", "industry")
+    if sector_type == "concept":
+        sectors = get_concept_sectors(limit=limit)
+    else:
+        sectors = get_industry_sectors(limit=limit)
 
     return jsonify({"success": True, "data": sectors, "total": len(sectors)})
 

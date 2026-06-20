@@ -216,6 +216,16 @@ export async function removeFromWatchlist(code) {
   return data.data;
 }
 
+export async function reorderWatchlist(codes) {
+  const res = await fetchWithAuth(`${API_BASE}/watchlist/reorder`, {
+    method: 'PUT',
+    body: JSON.stringify({ codes }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+}
+
 export async function fetchWatchlistSignals() {
   const res = await fetchWithAuth(`${API_BASE}/watchlist/signals`);
   const data = await res.json();

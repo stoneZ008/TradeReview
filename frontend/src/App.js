@@ -21,7 +21,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import MobileTestPage from './pages/MobileTestPage';
-import { fetchStockData as apiFetchStockData, fetchExperimentalStock as apiFetchExperimentalStock, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist } from './api';
+import { fetchStockData as apiFetchStockData, fetchExperimentalStock as apiFetchExperimentalStock, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist, reorderWatchlist as apiReorderWatchlist } from './api';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -180,6 +180,22 @@ function HomePage() {
       setWatchlist(data);
     } catch (e) {
       console.error('删除自选股失败:', e);
+    }
+  };
+
+  const handleReorderWatchlist = async (codes) => {
+    const prev = watchlist;
+    const ordered = codes
+      .map((code) => prev.find((s) => s.code === code))
+      .filter(Boolean);
+    const remaining = prev.filter((s) => !codes.includes(s.code));
+    setWatchlist([...ordered, ...remaining]);
+    try {
+      const data = await apiReorderWatchlist(codes);
+      setWatchlist(data);
+    } catch (e) {
+      console.error('排序自选股失败:', e);
+      setWatchlist(prev);
     }
   };
 
@@ -452,14 +468,7 @@ function HomePage() {
                    >
                      个人中心
                    </Link>
-                   <Link
-                     to="/subscription"
-                     className="user-dropdown-item"
-                     onClick={() => setShowUserMenu(false)}
-                   >
-                     开通会员
-                   </Link>
-                    {(hasRole('admin') || hasRole('super_admin')) && (
+                     {(hasRole('admin') || hasRole('super_admin')) && (
                       <>
                         <Link
                           to="/admin"
@@ -498,7 +507,7 @@ function HomePage() {
         <BatchSignalScanner onStockSelect={handleStockSelectFromDao} results={scanResults} setResults={setScanResults} jsonText={scanJsonText} setJsonText={setScanJsonText} />
       ) : (
         <div className="main-content">
-          <Watchlist watchlist={watchlist} onSelect={selectWatchStock} onRemove={handleRemoveFromWatchlist} />
+          <Watchlist watchlist={watchlist} onSelect={selectWatchStock} onRemove={handleRemoveFromWatchlist} onReorder={handleReorderWatchlist} />
 
           <div className="chart-section">
             <div className="chart-tabs">

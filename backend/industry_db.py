@@ -212,6 +212,7 @@ def get_all_industries():
                 sub_companies = [
                     {
                         "id": c["id"],
+                        "sub_industry_id": str(c["sub_industry_id"]),
                         "code": c["code"],
                         "name": c["name"],
                         "role": c["role"],
@@ -289,18 +290,28 @@ def add_company(sub_industry_id, code, name, role, feature, desc):
     return company_id
 
 
-def update_company(company_id, code, name, role, feature, desc):
+def update_company(company_id, code, name, role, feature, desc, sub_industry_id=None):
     """更新公司"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE companies
-        SET code=?, name=?, role=?, feature=?, description=?, updated_at=CURRENT_TIMESTAMP
-        WHERE id=?
-    """,
-        (code, name, role, feature, desc, company_id),
-    )
+    if sub_industry_id is not None:
+        cursor.execute(
+            """
+            UPDATE companies
+            SET code=?, name=?, role=?, feature=?, description=?, sub_industry_id=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+        """,
+            (code, name, role, feature, desc, sub_industry_id, company_id),
+        )
+    else:
+        cursor.execute(
+            """
+            UPDATE companies
+            SET code=?, name=?, role=?, feature=?, description=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+        """,
+            (code, name, role, feature, desc, company_id),
+        )
     conn.commit()
     conn.close()
 
@@ -310,6 +321,30 @@ def delete_company(company_id):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM companies WHERE id=?", (company_id,))
+    conn.commit()
+    conn.close()
+
+
+def delete_sub_industry(sub_industry_id):
+    """删除子行业（同时删除其下所有公司）"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM companies WHERE sub_industry_id=?", (sub_industry_id,))
+    cursor.execute("DELETE FROM sub_industries WHERE id=?", (sub_industry_id,))
+    conn.commit()
+    conn.close()
+
+
+def delete_industry(industry_id):
+    """删除行业（级联删除子行业和公司）"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM sub_industries WHERE industry_id=?", (industry_id,))
+    sub_ids = [row[0] for row in cursor.fetchall()]
+    for sub_id in sub_ids:
+        cursor.execute("DELETE FROM companies WHERE sub_industry_id=?", (sub_id,))
+    cursor.execute("DELETE FROM sub_industries WHERE industry_id=?", (industry_id,))
+    cursor.execute("DELETE FROM industries WHERE id=?", (industry_id,))
     conn.commit()
     conn.close()
 

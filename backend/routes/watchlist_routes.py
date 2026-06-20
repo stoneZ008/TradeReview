@@ -17,7 +17,7 @@ def get_watchlist():
     cursor.execute(
         """
         SELECT stock_code, stock_name FROM user_watchlists
-        WHERE user_id = ? ORDER BY created_at DESC
+        WHERE user_id = ? ORDER BY sort_order ASC, id ASC
     """,
         (user_id,),
     )
@@ -77,6 +77,33 @@ def delete_watchlist(code):
     response = result.get_json()
     response["success"] = True
     response["message"] = "删除成功"
+    return jsonify(response)
+
+
+@watchlist_bp.route("/reorder", methods=["PUT"])
+@requires_permission("watchlist:write")
+def reorder_watchlist():
+    """更新自选股排序。请求体: {"codes": ["600519", "000001", ...]}"""
+    user_id = g.user_id
+    data = request.json or {}
+    codes = data.get("codes", [])
+    if not isinstance(codes, list) or not codes:
+        return jsonify({"error": "缺少 codes 列表"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    for idx, code in enumerate(codes):
+        cursor.execute(
+            "UPDATE user_watchlists SET sort_order = ? WHERE user_id = ? AND stock_code = ?",
+            (idx, user_id, code),
+        )
+    conn.commit()
+    conn.close()
+
+    result = get_watchlist()
+    response = result.get_json()
+    response["success"] = True
+    response["message"] = "排序成功"
     return jsonify(response)
 
 

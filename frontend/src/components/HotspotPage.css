@@ -22,23 +22,6 @@
 .turnover-tag { color: #f59e0b !important; font-weight: 600; }
 .turnover-tag strong { color: #ef4444; }
 
-.bull-market-row { margin-top: 12px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 14px; }
-.bull-badge { background: rgba(239, 68, 68, 0.12); color: #ef4444; padding: 4px 12px; border-radius: 20px; font-weight: 600; }
-.bear-badge { background: rgba(34, 197, 94, 0.12); color: #22c55e; padding: 4px 12px; border-radius: 20px; font-weight: 600; }
-.bull-score { font-weight: 500; opacity: 0.85; margin-left: 4px; }
-.bull-summary { color: var(--text-secondary); flex: 1; min-width: 220px; }
-.reasons-toggle { background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-.reasons-toggle:hover { color: var(--text-primary); border-color: var(--accent-color); }
-
-.bull-reasons { margin-top: 10px; padding: 12px 14px; background: var(--bg-primary); border: 1px dashed var(--border-color); border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
-.reason-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-.reason-mark { display: inline-block; width: 18px; text-align: center; font-weight: 700; }
-.reason-item.hit .reason-mark { color: #ef4444; }
-.reason-item.miss .reason-mark { color: #94a3b8; }
-.reason-item.miss { opacity: 0.75; }
-.reason-label { color: var(--text-primary); font-weight: 500; min-width: 180px; }
-.reason-weight { color: var(--text-secondary); font-size: 12px; padding: 1px 6px; border-radius: 4px; background: var(--bg-secondary); }
-.reason-detail { color: var(--text-secondary); }
 .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
 .tab { padding: 10px 20px; border: none; background: var(--bg-secondary); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 14px; }
 .tab.active { background: var(--accent-color); color: white; }
@@ -115,3 +98,23 @@
 .sector-tile.flat { background: rgba(107, 114, 128, 0.5); }
 .tile-name { font-size: 13px; font-weight: 600; text-align: center; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .tile-pct { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* 板块类型切换 tab */
+.sector-type-tabs { display: flex; gap: 4px; }
+.sector-type-tab { padding: 4px 12px; border: 1px solid var(--border-color); background: transparent; color: var(--text-secondary); border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+.sector-type-tab:hover { color: var(--text-primary); }
+.sector-type-tab.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+
+/* 成分股搜索框 */
+.stocks-table-header { display: flex; justify-content: space-between; align-items: center; margin: 15px 0 10px 0; }
+.stock-search-input { padding: 4px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); font-size: 13px; width: 140px; outline: none; }
+.stock-search-input:focus { border-color: var(--accent-color); }
+
+/* 展开全部 */
+.show-more-row { text-align: center; padding: 10px; color: var(--accent-color); cursor: pointer; font-size: 13px; border-top: 1px solid var(--border-color); transition: background 0.2s; }
+.show-more-row:hover { background: var(--bg-tertiary); }
+
+/* 归因弹窗跳转按钮 */
+.modal-footer-actions { margin-top: 20px; display: flex; justify-content: center; }
+.btn-view-kline { padding: 10px 24px; background: var(--accent-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: opacity 0.2s; }
+.btn-view-kline:hover { opacity: 0.9; }
