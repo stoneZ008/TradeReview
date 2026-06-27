@@ -12,48 +12,64 @@ const DEFAULT_OPTIONS = {
   strongThreshold: 70,
 };
 
+function isFiniteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function hasMacdValue(data, i) {
+  return data[i] && isFiniteNumber(data[i].macd) && isFiniteNumber(data[i].macd_hist);
+}
+
 function isPivotLow(data, i, leftN, rightM) {
   const v = data[i].low;
+  if (!isFiniteNumber(v)) return false;
   for (let k = 1; k <= leftN; k++) {
     if (i - k < 0) return false;
-    if (data[i - k].low <= v) return false;
+    if (!isFiniteNumber(data[i - k].low) || data[i - k].low <= v) return false;
   }
   for (let k = 1; k <= rightM; k++) {
     if (i + k >= data.length) return false;
-    if (data[i + k].low <= v) return false;
+    if (!isFiniteNumber(data[i + k].low) || data[i + k].low <= v) return false;
   }
   return true;
 }
 
 function isPivotHigh(data, i, leftN, rightM) {
   const v = data[i].high;
+  if (!isFiniteNumber(v)) return false;
   for (let k = 1; k <= leftN; k++) {
     if (i - k < 0) return false;
-    if (data[i - k].high >= v) return false;
+    if (!isFiniteNumber(data[i - k].high) || data[i - k].high >= v) return false;
   }
   for (let k = 1; k <= rightM; k++) {
     if (i + k >= data.length) return false;
-    if (data[i + k].high >= v) return false;
+    if (!isFiniteNumber(data[i + k].high) || data[i + k].high >= v) return false;
   }
   return true;
 }
 
-function scoreBottomDivergence(data, i, j, opts) {
+function getVolumeFactor(data, i) {
+  const start = Math.max(0, i - 19);
+  const slice = data.slice(start, i + 1).map((d) => d.volume).filter(isFiniteNumber);
+  if (slice.length === 0 || !isFiniteNumber(data[i].volume)) return 0;
+  const volMA = slice.reduce((s, v) => s + v, 0) / slice.length;
+  return volMA > 0 ? Math.min(data[i].volume / volMA, 3) / 3 : 0;
+}
+
+function scoreBottomDivergence(data, i, j) {
   const closeI = data[i].close;
   const lowI = data[i].low;
   const lowJ = data[j].low;
   const histI = data[i].macd_hist;
   const histJ = data[j].macd_hist;
 
-  const priceDrop = (lowJ - lowI) / lowJ;
+  const priceDrop = (lowJ - lowI) / (lowJ || 1e-6);
   const histImprove = (histI - histJ) / (Math.abs(histJ) || 1e-6);
   const closeVsLow = (closeI - lowI) / (lowI || 1e-6);
-
-  const volMA = data.slice(Math.max(0, i - 19), i + 1).reduce((s, d) => s + d.volume, 0) / (i - Math.max(0, i - 19) + 1);
-  const volumeFactor = volMA > 0 ? Math.min(data[i].volume / volMA, 3) / 3 : 0;
+  const volumeFactor = getVolumeFactor(data, i);
 
   let ma5Turning = 0;
-  if (i >= 2 && data[i - 1].ma5 != null && data[i - 2].ma5 != null && data[i].ma5 != null) {
+  if (i >= 2 && isFiniteNumber(data[i - 1].ma5) && isFiniteNumber(data[i - 2].ma5) && isFiniteNumber(data[i].ma5)) {
     const slope1 = data[i - 1].ma5 - data[i - 2].ma5;
     const slope2 = data[i].ma5 - data[i - 1].ma5;
     if (slope1 < 0 && slope2 > 0) ma5Turning = 1;
@@ -69,13 +85,46 @@ function scoreBottomDivergence(data, i, j, opts) {
   return Math.round(Math.min(100, Math.max(0, score)));
 }
 
-function findThreeWave(data, i, pivots, opts) {
+function scoreTopDivergence(data, i, j) {
+  const closeI = data[i].close;
+  const openI = data[i].open;
+  const highI = data[i].high;
+  const highJ = data[j].high;
+  const histI = data[i].macd_hist;
+  const histJ = data[j].macd_hist;
+
+  const priceRise = (highI - highJ) / (highJ || 1e-6);
+  const histDecline = (histJ - histI) / (Math.abs(histJ) || 1e-6);
+  const closeVsHigh = (highI - closeI) / (highI || 1e-6);
+  const volumeFactor = getVolumeFactor(data, i);
+  const bearishCandle = closeI < openI ? 1 : 0;
+
+  let ma5Turning = 0;
+  if (i >= 2 && isFiniteNumber(data[i - 1].ma5) && isFiniteNumber(data[i - 2].ma5) && isFiniteNumber(data[i].ma5)) {
+    const slope1 = data[i - 1].ma5 - data[i - 2].ma5;
+    const slope2 = data[i].ma5 - data[i - 1].ma5;
+    if (slope1 > 0 && slope2 < 0) ma5Turning = 1;
+  }
+
+  let score = 0;
+  score += 25 * Math.min(priceRise / 0.05, 1);
+  score += 25 * Math.min(histDecline / 1.0, 1);
+  score += 15 * Math.min(closeVsHigh / 0.03, 1);
+  score += 15 * Math.min(volumeFactor, 1);
+  score += 10 * ma5Turning;
+  score += 10 * bearishCandle;
+
+  return Math.round(Math.min(100, Math.max(0, score)));
+}
+
+function findThreeWave(data, i, pivots) {
   if (pivots.length < 2) return false;
   for (let a = 0; a < pivots.length; a++) {
     for (let b = a + 1; b < pivots.length; b++) {
       const j1 = pivots[a];
       const j2 = pivots[b];
       if (
+        hasMacdValue(data, j1) && hasMacdValue(data, j2) &&
         data[j1].low > data[j2].low && data[j2].low > data[i].low &&
         data[j1].macd_hist < data[j2].macd_hist && data[j2].macd_hist < data[i].macd_hist
       ) {
@@ -108,34 +157,40 @@ export function detectMACDDivergence(data, userOptions = {}) {
   const rawTop = [];
 
   for (let i = lookback; i < data.length; i++) {
+    if (!hasMacdValue(data, i)) continue;
+
     if (isPivotLow(data, i, leftN, rightM)) {
       const pivots = [];
       for (let j = i - lookback; j <= i - leftN - rightM; j++) {
-        if (isPivotLow(data, j, leftN, rightM)) {
+        if (isPivotLow(data, j, leftN, rightM) && hasMacdValue(data, j)) {
           pivots.push(j);
         }
       }
       if (pivots.length === 0) continue;
 
-      pivots.sort((a, b) => data[a].low - data[b].low);
       let bestJ = -1;
+      let bestScore = -1;
       for (const j of pivots) {
-        if (data[j].low < data[i].low) { bestJ = j; break; }
+        const priceDrop = (data[j].low - data[i].low) / (data[j].low || 1e-6);
+        if (priceDrop < minPriceDrop) continue;
+
+        const histImprove = (data[i].macd_hist - data[j].macd_hist) / (Math.abs(data[j].macd_hist) || 1e-6);
+        const difImprove = data[i].macd - data[j].macd;
+        if (histImprove < minMacdImprove && difImprove <= 0) continue;
+
+        const score = scoreBottomDivergence(data, i, j);
+        if (score > bestScore) {
+          bestJ = j;
+          bestScore = score;
+        }
       }
       if (bestJ < 0) continue;
-
-      const priceDrop = (data[bestJ].low - data[i].low) / data[bestJ].low;
-      if (priceDrop < minPriceDrop) continue;
-
-      const histImprove = (data[i].macd_hist - data[bestJ].macd_hist) / (Math.abs(data[bestJ].macd_hist) || 1e-6);
-      const difImprove = data[i].macd - data[bestJ].macd;
-      if (histImprove < minMacdImprove && difImprove <= 0) continue;
 
       const zeroLimit = zeroAxisTolerance > 0 ? data[i].close * zeroAxisTolerance : 0;
       if (data[i].macd > zeroLimit) continue;
 
-      const isThreeWave = findThreeWave(data, i, pivots.filter(j => j !== bestJ && data[j].low > data[i].low), opts);
-      let score = scoreBottomDivergence(data, i, bestJ, opts);
+      const isThreeWave = findThreeWave(data, i, pivots.filter((j) => j !== bestJ && data[j].low > data[i].low));
+      let score = bestScore;
       if (isThreeWave) score = Math.min(100, score + 10);
 
       if (score < weakThreshold) continue;
@@ -170,36 +225,34 @@ export function detectMACDDivergence(data, userOptions = {}) {
     if (isPivotHigh(data, i, leftN, rightM)) {
       const pivots = [];
       for (let j = i - lookback; j <= i - leftN - rightM; j++) {
-        if (isPivotHigh(data, j, leftN, rightM)) {
+        if (isPivotHigh(data, j, leftN, rightM) && hasMacdValue(data, j)) {
           pivots.push(j);
         }
       }
       if (pivots.length === 0) continue;
 
-      pivots.sort((a, b) => data[b].high - data[a].high);
       let bestJ = -1;
+      let bestScore = -1;
       for (const j of pivots) {
-        if (data[j].high > data[i].high) { bestJ = j; break; }
+        const priceRise = (data[i].high - data[j].high) / (data[j].high || 1e-6);
+        if (priceRise < minPriceDrop) continue;
+
+        const histDecline = (data[j].macd_hist - data[i].macd_hist) / (Math.abs(data[j].macd_hist) || 1e-6);
+        const difDecline = data[j].macd - data[i].macd;
+        if (histDecline < minMacdImprove && difDecline <= 0) continue;
+
+        const score = scoreTopDivergence(data, i, j);
+        if (score > bestScore) {
+          bestJ = j;
+          bestScore = score;
+        }
       }
       if (bestJ < 0) continue;
-
-      const priceRise = (data[i].high - data[bestJ].high) / data[bestJ].high;
-      if (Math.abs(priceRise) < minPriceDrop) continue;
-
-      const histDecline = (data[bestJ].macd_hist - data[i].macd_hist) / (Math.abs(data[bestJ].macd_hist) || 1e-6);
-      const difDecline = data[bestJ].macd - data[i].macd;
-      if (histDecline < minMacdImprove && difDecline <= 0) continue;
 
       const zeroLimit = zeroAxisTolerance > 0 ? data[i].close * zeroAxisTolerance : 0;
       if (data[i].macd < -zeroLimit) continue;
 
-      let score = Math.round(Math.min(100, Math.max(0,
-        25 * Math.min(Math.abs(priceRise) / 0.05, 1) +
-        25 * Math.min(histDecline / 1.0, 1) +
-        25 +
-        25 * ((data[i].close < data[i].open ? 1 : 0))
-      )));
-
+      const score = bestScore;
       if (score < weakThreshold) continue;
 
       const level = score >= strongThreshold ? 'strong' : 'medium';
@@ -209,7 +262,7 @@ export function detectMACDDivergence(data, userOptions = {}) {
         name: label,
         coord: [data[i].date, data[i].macd],
         symbol: 'arrow',
-        symbolSize: Math.round(10 + (score / 100) * 14),
+        symbolSize: Math.round(8 + (score / 100) * 6),
         label: {
           show: true,
           formatter: label + (score >= strongThreshold ? ' ' + score : ''),
@@ -224,6 +277,7 @@ export function detectMACDDivergence(data, userOptions = {}) {
         score,
         level,
         isThreeWave: false,
+        prevDate: data[bestJ].date,
         dataIndex: i,
       });
     }

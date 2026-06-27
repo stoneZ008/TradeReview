@@ -131,8 +131,36 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
   bottomDivergence.forEach((d) => { bottomDivByDate[d.coord[0]] = d; });
   const topDivByDate = {};
   topDivergence.forEach((d) => { topDivByDate[d.coord[0]] = d; });
+  const lastDate = data.length > 0 ? data[data.length - 1].date : '';
+  const latestBottomDiv = lastDate ? bottomDivByDate[lastDate] : null;
+  const latestTopDiv = lastDate ? topDivByDate[lastDate] : null;
+  const latestDivText = [
+    latestBottomDiv ? `今日底背离 分值${latestBottomDiv.score}` : '',
+    latestTopDiv ? `今日顶背离 分值${latestTopDiv.score}` : '',
+  ].filter(Boolean).join(' / ');
+  const latestDivColor = latestBottomDiv ? THEME.down : THEME.up;
+  const latestDataItem = data.length > 0 ? data[data.length - 1] : null;
+  const latestDivergencePoints = isMobile && latestDataItem ? [
+    latestBottomDiv ? {
+      name: '底背离',
+      coord: [lastDate, latestDataItem.low],
+      symbol: 'roundRect',
+      symbolSize: [34, 18],
+      label: { show: true, formatter: '底背', color: '#fff', fontSize: 10, fontWeight: 'bold' },
+      itemStyle: { color: THEME.down, borderColor: '#fff', borderWidth: 1, shadowBlur: 8, shadowColor: 'rgba(0,176,124,0.6)' },
+    } : null,
+    latestTopDiv ? {
+      name: '顶背离',
+      coord: [lastDate, latestDataItem.high],
+      symbol: 'roundRect',
+      symbolSize: [34, 18],
+      label: { show: true, formatter: '顶背', color: '#fff', fontSize: 10, fontWeight: 'bold' },
+      itemStyle: { color: THEME.up, borderColor: '#fff', borderWidth: 1, shadowBlur: 8, shadowColor: 'rgba(250,62,62,0.6)' },
+    } : null,
+  ].filter(Boolean) : [];
 
   const latestMomentum = stockData.summary?.latest_momentum || null;
+
   const getMomentumIcon = (score) => {
     if (score === null || score === undefined) return '📊';
     if (score >= 80) return '🔥';
@@ -235,10 +263,29 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
     }
     titleItems.push(titleItem);
   }
+  if (latestDivText && isMobile) {
+    titleItems.push({
+      left: 8,
+      top: signalTag ? 56 : 30,
+      text: '{div|' + latestDivText + '}',
+      textStyle: {
+        rich: {
+          div: {
+            backgroundColor: latestDivColor,
+            color: '#fff',
+            fontSize: 10,
+            fontWeight: 'bold',
+            padding: [3, 7],
+            borderRadius: 3,
+          },
+        },
+      },
+    });
+  }
   if (weakSellTag && isMobile) {
     titleItems.push({
       left: 8,
-      top: 56,
+      top: latestDivText ? 82 : 56,
       text: '{warn|' + weakSellTag + '}',
       textStyle: {
         rich: {
@@ -437,7 +484,7 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           borderColor0: THEME.down,
           borderWidth: 1,
         },
-        markPoint: { data: [...buyPoints, ...sellPoints] },
+        markPoint: { data: [...buyPoints, ...sellPoints, ...latestDivergencePoints] },
         markLine: {
           symbol: 'none',
           data: [
@@ -586,7 +633,7 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           title: [{ textStyle: { fontSize: 13 } }],
           legend: { show: false },
           grid: [
-            { left: 8, right: 44, top: weakSellTag ? 84 : (signalTag ? 60 : 36), height: weakSellTag ? '70%' : '74%' },
+            { left: 8, right: 44, top: weakSellTag ? (latestDivText ? 108 : 84) : (latestDivText ? 84 : (signalTag ? 60 : 36)), height: weakSellTag ? (latestDivText ? '62%' : '70%') : '74%' },
             { left: 8, right: 44, top: 0, height: 0 },
             { left: 8, right: 44, top: 0, height: 0 },
           ],

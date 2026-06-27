@@ -100,9 +100,9 @@ export default function Watchlist({ watchlist, onSelect, onRemove, onReorder }) 
             onClick={() => onSelect(stock)}
           >
             <div className="watchlist-drag-handle">⠿</div>
-            <div className="watchlist-stock-info">
-              <span className="watchlist-code">{stock.code}</span>
+            <div className={`watchlist-stock-info${activeTab === 'us' ? ' us-stock' : ''}`}>
               <span className="watchlist-name">{stock.name}</span>
+              <span className="watchlist-code">{stock.code}</span>
             </div>
             <button className="btn-delete-watchlist" onClick={(e) => onRemove(stock.code, e)}>
               ✕

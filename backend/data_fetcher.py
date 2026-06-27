@@ -577,10 +577,10 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
             f"请稍后重试，或换用 AAPL/MSFT/GOOGL/AMZN/TSLA/NVDA 等主流标的。"
         )
 
-    # A 股：东方财富 → 腾讯 → 新浪
+    # A 股：腾讯 → 东方财富 → 新浪
     a_fetchers = [
-        ("东方财富", lambda: _fetch_eastmoney(symbol, start_date, end_date, adjust)),
         ("腾讯", lambda: _fetch_tencent_a(symbol, start_date, end_date)),
+        ("东方财富", lambda: _fetch_eastmoney(symbol, start_date, end_date, adjust)),
         ("新浪", lambda: _fetch_sina(symbol, start_date, end_date)),
     ]
     df = pd.DataFrame()
@@ -808,11 +808,32 @@ def _get_stock_info_yfinance(symbol):
         return None
 
 
+_INFO_CACHE = {}
+_INFO_CACHE_TTL = 300  # 5 分钟
+
+
 def get_stock_info(symbol):
     symbol = symbol.strip().upper()
     if symbol.startswith(("SH", "SZ")):
         symbol = symbol[2:]
 
+    cache_key = f"info:{symbol}"
+    with _CACHE_LOCK:
+        item = _INFO_CACHE.get(cache_key)
+        if item:
+            ts, info = item
+            if time.time() - ts <= _INFO_CACHE_TTL:
+                return info
+
+    result = _get_stock_info_impl(symbol)
+
+    with _CACHE_LOCK:
+        _INFO_CACHE[cache_key] = (time.time(), result)
+
+    return result
+
+
+def _get_stock_info_impl(symbol):
     # 美股：优先用新浪/腾讯实时行情（避免 yfinance.info 限流）
     if is_us_stock(symbol):
         for fn in [_get_stock_info_sina_us, _get_stock_info_tencent_us]:

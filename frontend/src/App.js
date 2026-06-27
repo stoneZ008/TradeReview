@@ -213,20 +213,26 @@ function HomePage() {
     if (!code) return;
     setLoading(true);
     try {
-      const [defaultResult, aggressiveResult] = await Promise.allSettled([
-        apiFetchStockData(code, startDate, endDate, rsiPeriod),
-        apiFetchExperimentalStock(code, startDate, endDate, rsiPeriod),
-      ]);
-      if (defaultResult.status === 'fulfilled') {
-        setStockData(trimDataForMobile(defaultResult.value));
+      if (activeChart === 'kline2') {
+        const [defaultResult, aggressiveResult] = await Promise.allSettled([
+          apiFetchStockData(code, startDate, endDate, rsiPeriod),
+          apiFetchExperimentalStock(code, startDate, endDate, rsiPeriod),
+        ]);
+        if (defaultResult.status === 'fulfilled') {
+          setStockData(trimDataForMobile(defaultResult.value));
+        } else {
+          throw defaultResult.reason;
+        }
+        if (aggressiveResult.status === 'fulfilled') {
+          setStockDataV2(trimDataForMobile(aggressiveResult.value));
+        } else {
+          setStockDataV2(null);
+          console.error('激进策略数据加载失败:', aggressiveResult.reason);
+        }
       } else {
-        throw defaultResult.reason;
-      }
-      if (aggressiveResult.status === 'fulfilled') {
-        setStockDataV2(trimDataForMobile(aggressiveResult.value));
-      } else {
+        const data = await apiFetchStockData(code, startDate, endDate, rsiPeriod);
+        setStockData(trimDataForMobile(data));
         setStockDataV2(null);
-        console.error('激进策略数据加载失败:', aggressiveResult.reason);
       }
     } catch (e) {
       alert(e.message || '获取数据失败，请确保后端服务已启动');

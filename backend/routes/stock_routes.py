@@ -4,7 +4,7 @@ import requests
 
 from routes import stock_bp
 from data_fetcher import fetch_stock_data, search_stock, get_stock_info
-from indicators import calculate_all_indicators, find_support_resistance, detect_volume_price_patterns
+from indicators import calculate_all_indicators, find_support_resistance
 from strategies import generate_trading_signals
 from backtest import run_backtest
 from auth import (
@@ -83,8 +83,6 @@ def get_stock_data(symbol):
             "kdj_d": round(row["kdj_d"], 2) if pd.notna(row["kdj_d"]) else None,
             "kdj_j": round(row["kdj_j"], 2) if pd.notna(row["kdj_j"]) else None,
             "vol_ratio": round(row["vol_ratio"], 2) if pd.notna(row["vol_ratio"]) else None,
-            "pct_change": round(row["pct_change"], 2) if "pct_change" in row and pd.notna(row.get("pct_change")) else None,
-            "turnover": round(row["turnover"], 2) if "turnover" in row and pd.notna(row.get("turnover")) else None,
             "momentum_score": round(row["momentum_score"], 2) if pd.notna(row.get("momentum_score")) else None,
             "momentum_level": row.get("momentum_level", "") if pd.notna(row.get("momentum_level")) else "",
             "buy_score": round(row["buy_score"], 3),
@@ -119,9 +117,6 @@ def get_stock_data(symbol):
                 },
             }
 
-    # 量价形态识别
-    patterns = detect_volume_price_patterns(df_with_indicators)
-
     return jsonify(
         {
             "name": stock_name,
@@ -129,7 +124,6 @@ def get_stock_data(symbol):
             "data": records,
             "support_levels": sr_levels["support_levels"],
             "resistance_levels": sr_levels["resistance_levels"],
-            "patterns": patterns,
             "summary": {
                 "total": len(records),
                 "buy_signals": len(buy_points),
