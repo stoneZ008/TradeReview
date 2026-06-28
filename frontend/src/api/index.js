@@ -216,6 +216,16 @@ export async function removeFromWatchlist(code) {
   return data.data;
 }
 
+export async function reorderWatchlist(codes) {
+  const res = await fetchWithAuth(`${API_BASE}/watchlist/reorder`, {
+    method: 'PUT',
+    body: JSON.stringify({ codes }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message);
+  return data.data;
+}
+
 export async function fetchWatchlistSignals() {
   const res = await fetchWithAuth(`${API_BASE}/watchlist/signals`);
   const data = await res.json();
@@ -309,5 +319,32 @@ export async function runStrategyCompare(symbol, startDate, endDate, config = {}
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function batchScanSignals(stocks) {
+  const res = await fetchWithAuth(`${API_BASE}/batch-scan/scan`, {
+    method: 'POST',
+    body: JSON.stringify({ stocks }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '批量扫描失败');
+  return data;
+}
+
+export async function getBatchScanPreset() {
+  const res = await fetchWithAuth(`${API_BASE}/batch-scan/preset`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '加载预设失败');
+  return data.content;
+}
+
+export async function saveBatchScanPreset(content) {
+  const res = await fetchWithAuth(`${API_BASE}/batch-scan/preset`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || '保存预设失败');
   return data;
 }

@@ -10,6 +10,7 @@ from user_db import get_connection
 from data_fetcher import fetch_stock_data
 from indicators import calculate_all_indicators
 from strategies import generate_trading_signals
+from strategies_experimental import generate_trading_signals_v2
 
 
 def _is_a_share(code):
@@ -39,6 +40,9 @@ def _scan_single_stock(code, name):
         "last_signal": 0,
         "last_signal_date": None,
         "has_signal_today": 0,
+        "last_signal_v2": 0,
+        "last_signal_date_v2": None,
+        "has_signal_today_v2": 0,
         "error": None,
     }
 
@@ -50,9 +54,11 @@ def _scan_single_stock(code, name):
 
         df_ind = calculate_all_indicators(df)
         signals_df = generate_trading_signals(df_ind, {"buy_threshold": 0.08, "sell_threshold": 0.12})
+        signals_df_v2 = generate_trading_signals_v2(df_ind, {"buy_threshold": 0.08, "sell_threshold": 0.12})
 
         merged = df_ind.copy()
         merged["signal"] = signals_df["signal"]
+        merged["signal_v2"] = signals_df_v2["signal"]
 
         last_idx = merged.index[-1]
         last_row = merged.iloc[-1]
@@ -71,7 +77,7 @@ def _scan_single_stock(code, name):
         if pct is not None:
             snapshot["pct_change"] = round(pct, 2)
 
-        # 最近一个非零信号
+        # 默认策略：最近一个非零信号
         nonzero = merged[merged["signal"] != 0]
         if not nonzero.empty:
             last_sig_idx = nonzero.index[-1]
@@ -79,9 +85,21 @@ def _scan_single_stock(code, name):
             snapshot["last_signal"] = int(last_sig_row["signal"])
             snapshot["last_signal_date"] = last_sig_idx.strftime("%Y-%m-%d")
 
-        # 最近一个交易日是否有信号
+        # 默认策略：最近一个交易日是否有信号
         if int(last_row["signal"]) != 0:
             snapshot["has_signal_today"] = 1
+
+        # 激进策略：最近一个非零信号
+        nonzero_v2 = merged[merged["signal_v2"] != 0]
+        if not nonzero_v2.empty:
+            last_sig_idx_v2 = nonzero_v2.index[-1]
+            last_sig_row_v2 = nonzero_v2.iloc[-1]
+            snapshot["last_signal_v2"] = int(last_sig_row_v2["signal_v2"])
+            snapshot["last_signal_date_v2"] = last_sig_idx_v2.strftime("%Y-%m-%d")
+
+        # 激进策略：最近一个交易日是否有信号
+        if int(last_row["signal_v2"]) != 0:
+            snapshot["has_signal_today_v2"] = 1
     except Exception as e:
         snapshot["error"] = str(e)[:200]
 
@@ -94,7 +112,7 @@ def _get_user_a_share_watchlist(user_id):
     cursor.execute(
         """
         SELECT stock_code, stock_name FROM user_watchlists
-        WHERE user_id = ? ORDER BY created_at DESC
+        WHERE user_id = ? ORDER BY sort_order ASC, id ASC
     """,
         (user_id,),
     )
@@ -173,8 +191,9 @@ def scan_user_watchlist(user_id, force=False):
                 """
                 INSERT OR IGNORE INTO watchlist_signal_snapshots
                 (user_id, snapshot_date, stock_code, stock_name, last_trade_date,
-                 close_price, pct_change, last_signal, last_signal_date, has_signal_today, error)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 close_price, pct_change, last_signal, last_signal_date, has_signal_today,
+                 last_signal_v2, last_signal_date_v2, has_signal_today_v2, error)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     user_id,
@@ -187,6 +206,9 @@ def scan_user_watchlist(user_id, force=False):
                     snap["last_signal"],
                     snap["last_signal_date"],
                     snap["has_signal_today"],
+                    snap["last_signal_v2"],
+                    snap["last_signal_date_v2"],
+                    snap["has_signal_today_v2"],
                     snap["error"],
                 ),
             )

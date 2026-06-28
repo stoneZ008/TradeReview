@@ -5,8 +5,10 @@ from industry_db import (
     get_all_industries,
     add_industry,
     update_industry,
+    delete_industry,
     add_sub_industry,
     update_sub_industry,
+    delete_sub_industry,
     add_company,
     update_company,
     delete_company,
@@ -45,6 +47,16 @@ def edit_industry(industry_id):
         return jsonify({"success": False, "error": "请输入行业名称"}), 400
     try:
         update_industry(industry_id, name, icon)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@industry_bp.route("/industries/<int:industry_id>", methods=["DELETE"])
+@requires_permission("industry:write")
+def remove_industry(industry_id):
+    try:
+        delete_industry(industry_id)
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -107,10 +119,11 @@ def edit_company(company_id):
     role = data.get("role", "")
     feature = data.get("feature", "")
     description = data.get("description", "")
+    sub_industry_id = data.get("sub_industry_id")
     if not code or not name:
         return jsonify({"success": False, "error": "缺少公司代码或名称"}), 400
     try:
-        update_company(company_id, code, name, role, feature, description)
+        update_company(company_id, code, name, role, feature, description, sub_industry_id)
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -121,6 +134,16 @@ def edit_company(company_id):
 def remove_company(company_id):
     try:
         delete_company(company_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@industry_bp.route("/sub-industries/<int:sub_id>", methods=["DELETE"])
+@requires_permission("industry:write")
+def remove_sub_industry(sub_id):
+    try:
+        delete_sub_industry(sub_id)
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

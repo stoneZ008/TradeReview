@@ -1,13 +1,15 @@
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-card: #16213e;
-  --border: #2a2a4a;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --accent: #3b82f6;
-  --up-color: #ef4444;
-  --down-color: #22c55e;
+  --bg-primary: #0a0e17;
+  --bg-secondary: #111722;
+  --bg-card: #141d2e;
+  --border: #243044;
+  --text-primary: #e4e7ed;
+  --text-secondary: #8a93a6;
+  --accent: #c98a2a;
+  --accent-hover: #a86f1c;
+  --accent-soft: #e4b96a;
+  --up-color: #fa3e3e;
+  --down-color: #00b07c;
   --warning: #f59e0b;
 }
 
@@ -136,18 +138,40 @@ body {
 
 .watchlist-stock-info {
   display: flex;
+  min-width: 0;
+  flex: 1;
   flex-direction: column;
+  align-items: flex-start;
   gap: 4px;
 }
 
 .watchlist-code {
+  width: 100%;
   font-weight: 600;
   font-size: 14px;
+  text-align: left;
 }
 
 .watchlist-name {
+  width: 100%;
+  overflow: hidden;
   color: var(--text-secondary);
   font-size: 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watchlist-stock-info.us-stock .watchlist-name {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.watchlist-stock-info.us-stock .watchlist-code {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .btn-delete-watchlist {
@@ -167,6 +191,46 @@ body {
   color: white;
 }
 
+.watchlist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.watchlist-drag-hint {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.watchlist-drag-handle {
+  cursor: grab;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  user-select: none;
+  margin-right: 4px;
+}
+
+.watchlist-item-card:hover .watchlist-drag-handle {
+  opacity: 0.8;
+}
+
+.watchlist-drag-handle:active {
+  cursor: grabbing;
+}
+
+.watchlist-item-card.dragging {
+  opacity: 0.4;
+}
+
+.watchlist-item-card.drag-over {
+  border-top: 2px solid var(--up-color);
+  margin-top: -2px;
+}
+
 .watchlist-empty {
   padding: 40px 20px;
   text-align: center;
@@ -175,6 +239,11 @@ body {
 
 .watchlist-empty p {
   font-size: 14px;
+}
+
+.watchlist-signals-table .col-date {
+  width: 92px;
+  white-space: nowrap;
 }
 
 .chart-section {
@@ -237,39 +306,6 @@ body {
   border-bottom: none;
 }
 
-.watchlist-stock-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.watchlist-code {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.watchlist-name {
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.btn-delete-watchlist {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 0;
-}
-
-.btn-delete-watchlist:hover {
-  background: var(--up-color);
-  color: white;
-}
-
 .watchlist-empty {
   padding: 24px;
   text-align: center;
@@ -328,15 +364,17 @@ body {
 
 .btn-primary {
   background: var(--accent);
-  color: white;
+  color: #fff;
+  font-weight: 600;
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  background: var(--accent-hover);
 }
 
 .btn-primary:disabled {
   background: #374151;
+  color: #9ca3af;
   cursor: not-allowed;
 }
 
@@ -414,6 +452,8 @@ body {
 .chart-container {
   flex: 1;
   padding: 16px;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .sidebar {
@@ -459,8 +499,10 @@ body {
 
 .signal-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 6px 12px;
   padding: 12px;
   background: var(--bg-card);
   border-radius: 8px;
@@ -509,6 +551,21 @@ body {
   padding: 2px 8px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.1);
+}
+
+.signal-hint {
+  flex-basis: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.signal-hint-weak-sell {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: var(--warning);
+  font-weight: 600;
 }
 
 .metrics-grid {
@@ -760,6 +817,7 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  font-weight: 600;
 }
 
 .nav-tab-disabled {
@@ -791,7 +849,7 @@ body {
   flex-direction: column;
 }
 
-.dao fancysidebar-header {
+.dao-sidebar-header {
   padding: 16px;
   border-bottom: 1px solid var(--border);
   font-weight: 600;
@@ -905,6 +963,21 @@ body {
 
 .industry-item:hover {
   background: var(--bg-card);
+}
+
+.industry-item.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.industry-item.active .industry-icon,
+.industry-item.active .industry-name {
+  color: #fff;
+}
+
+.industry-item.active .industry-count-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 .industry-icon {
@@ -1097,6 +1170,255 @@ body {
 }
 
 .btn-add-sub:hover {
+  background: var(--bg-card);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 搜索框 */
+.dao-search-box {
+  position: relative;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dao-search-input {
+  width: 100%;
+  padding: 8px 10px;
+  padding-right: 28px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.dao-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.dao-search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.dao-search-clear {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dao-search-clear:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* 一级行业公司数徽章 */
+.industry-count-badge {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+/* 删除行业按钮 */
+.btn-delete-industry {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.industry-item:hover .btn-delete-industry {
+  opacity: 1;
+}
+
+.btn-delete-industry:hover {
+  background: var(--up-color);
+  color: #fff;
+}
+
+/* 删除子行业按钮 */
+.btn-delete-sub {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sub-industry-item:hover .btn-delete-sub {
+  opacity: 1;
+}
+
+.btn-delete-sub:hover {
+  background: var(--up-color);
+  color: #fff;
+}
+
+/* 空状态 */
+.dao-empty-state {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 40px 20px;
+  font-size: 14px;
+}
+
+/* 搜索结果公司来源标签 */
+.company-card-source {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  display: inline-block;
+}
+
+/* 子分类 Tab 平铺 */
+.sub-industry-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sub-industry-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.sub-industry-tab:hover {
+  border-color: var(--accent);
+  background: var(--bg-secondary);
+}
+
+.sub-industry-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.sub-industry-tab-name {
+  font-weight: 500;
+}
+
+.sub-industry-tab-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.sub-industry-tab.active .sub-industry-tab-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.sub-industry-tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.sub-industry-tab-actions .btn-edit-sub,
+.sub-industry-tab-actions .btn-delete-sub {
+  opacity: 1;
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+}
+
+.sub-industry-tab.active .btn-edit-sub,
+.sub-industry-tab.active .btn-delete-sub {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.sub-industry-tab.active .btn-edit-sub:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.sub-industry-tab.active .btn-delete-sub:hover {
+  background: var(--up-color);
+  color: #fff;
+}
+
+/* 子行业表单行内 */
+.sub-industry-form-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 24px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+.sub-industry-form-inline.edit {
+  border-left: 3px solid var(--warning);
+}
+
+.sub-industry-form-inline .sub-industry-input {
+  flex: 0 0 200px;
+}
+
+/* 添加子分类按钮（header 内） */
+.btn-add-sub-inline {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-add-sub-inline:hover {
   background: var(--bg-card);
   border-color: var(--accent);
   color: var(--accent);
@@ -1913,6 +2235,28 @@ body {
   display: none !important;
 }
 
+.mobile-test-page .watchlist-signals-title {
+  display: none;
+}
+
+.watchlist-signals-table .col-date {
+  white-space: nowrap;
+  width: 92px;
+  min-width: 92px;
+}
+
+.mobile-test-page .watchlist-signals-table .col-code,
+.mobile-test-page .watchlist-signals-table .col-close,
+.mobile-test-page .watchlist-signals-table .col-date {
+  display: none;
+}
+
+.mobile-test-page .watchlist-signals-table th,
+.mobile-test-page .watchlist-signals-table td {
+  padding: 8px 6px;
+  font-size: 12px;
+}
+
 .mobile-test-page .chart-container {
   flex: none;
   height: 380px;
@@ -2202,6 +2546,22 @@ body {
   }
 
   .mobile-test-page .sidebar {
+    display: none;
+  }
+
+  .watchlist-signals-table .col-code,
+  .watchlist-signals-table .col-close,
+  .watchlist-signals-table .col-date {
+    display: none;
+  }
+
+  .watchlist-signals-table th,
+  .watchlist-signals-table td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+
+  .watchlist-signals-title {
     display: none;
   }
 }

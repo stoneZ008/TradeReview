@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import time
 import functools
 import os
@@ -30,9 +31,14 @@ _last_request_time = 0
 def _safe_float(value, default=0.0):
     """安全转换为浮点数"""
     try:
-        if pd.isna(value) or value is None:
+        if value is None:
             return default
-        if isinstance(value, (int, float)):
+        try:
+            if pd.isna(value):
+                return default
+        except (ValueError, TypeError):
+            pass
+        if isinstance(value, (int, float, np.integer, np.floating)):
             return float(value)
         if isinstance(value, str):
             value = value.replace("%", "").replace("亿", "").replace("万", "")
@@ -123,9 +129,31 @@ def get_trading_day():
     return now.strftime("%Y-%m-%d")
 
 
+@safe_akshare_call(default_return={})
+def _fetch_real_fund_flow_map():
+    """获取全市场个股资金流向映射 {code: net_inflow}"""
+    if ak is None:
+        return {}
+    df = ak.stock_individual_fund_flow_rank(indicator="今日")
+    if df is None or len(df) == 0:
+        return {}
+    result = {}
+    for _, row in df.iterrows():
+        try:
+            code = str(row.get("代码", ""))
+            if not code:
+                continue
+            net = _parse_fund_flow(str(row.get("今日主力净流入-净额", 0)))
+            result[code] = int(net)
+        except Exception:
+            continue
+    return result
+
+
 @safe_akshare_call(default_return=[])
 def _fetch_sector_stocks_em(sector_name, is_concept=True):
-    """获取板块成分股 - 优先东方财富接口，失败则使用资金流向数据筛选"""
+    """获取板块成分股 - 优先东方财富接口，失败则使用资金流向数据筛选。
+    资金净流入优先使用真实资金流数据，失败时用成交额×10%估算兜底。"""
     if ak is None:
         return []
 
@@ -148,6 +176,10 @@ def _fetch_sector_stocks_em(sector_name, is_concept=True):
     if df is None or len(df) == 0:
         return _fetch_sector_stocks_from_fund_flow(sector_name)
 
+    fund_flow_map = _fetch_real_fund_flow_map()
+    if not fund_flow_map:
+        print("[成分股] 真实资金流获取失败，使用估算值兜底")
+
     trading_day = get_trading_day()
     stocks = []
 
@@ -161,7 +193,7 @@ def _fetch_sector_stocks_em(sector_name, is_concept=True):
             turnover = _parse_float(row.get("成交额", 0))
             turnover_rate = _parse_float(row.get("换手率", 0))
             amplitude = _parse_float(row.get("振幅", 0))
-            fund_net_inflow = turnover * 0.1
+            fund_net_inflow = fund_flow_map.get(code, int(turnover * 0.1))
 
             stocks.append(
                 {
@@ -325,6 +357,83 @@ def get_industry_sectors(limit=50):
     return sectors[:limit]
 
 
+@safe_akshare_call(default_return=[])
+def _fetch_ths_concepts():
+    """获取同花顺概念板块实时数据"""
+    if ak is None:
+        return []
+
+    df = ak.stock_board_concept_name_ths()
+    if df is None or len(df) == 0:
+        return []
+
+    trading_day = get_trading_day()
+    sectors = []
+
+    for idx, row in df.iterrows():
+        try:
+            change_pct = _parse_float(row.get("涨跌幅", 0))
+            lead_stock_name = str(row.get("领涨股", ""))
+            lead_stock_pct = _parse_float(row.get("领涨股-涨跌幅", 0))
+            up_count = int(_safe_float(row.get("上涨家数", 0), 0))
+            down_count = int(_safe_float(row.get("下跌家数", 0), 0))
+            fund_net_inflow = _parse_fund_flow(str(row.get("净流入", "0")) + "亿")
+
+            sectors.append(
+                {
+                    "name": str(row.get("概念", f"概念{idx}")),
+                    "change_pct": round(change_pct, 2),
+                    "lead_stock": lead_stock_name,
+                    "lead_stock_pct": round(lead_stock_pct, 2),
+                    "stock_count": up_count + down_count,
+                    "up_count": up_count,
+                    "down_count": down_count,
+                    "fund_net_inflow": int(fund_net_inflow),
+                    "rank": idx + 1,
+                    "trading_day": trading_day,
+                    "update_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "is_mock": False,
+                    "source": "ths_concept",
+                }
+            )
+        except Exception as e:
+            print(f"解析概念板块数据失败: {e}")
+            continue
+
+    sectors.sort(key=lambda x: x["change_pct"], reverse=True)
+    for i, s in enumerate(sectors):
+        s["rank"] = i + 1
+
+    return sectors
+
+
+@lru_cache(maxsize=1)
+def get_concept_sectors(limit=50):
+    """获取概念板块"""
+    cache_key = "concept_sectors"
+    if _is_cache_valid(cache_key):
+        with _cache_lock:
+            return _cached_data.get(cache_key, [])
+
+    try:
+        print("正在获取同花顺概念板块数据...")
+        sectors = _fetch_ths_concepts()
+        if sectors:
+            with _cache_lock:
+                _cached_data[cache_key] = sectors[:limit]
+                _last_fetch_time[cache_key] = time.time()
+            return sectors[:limit]
+    except Exception as e:
+        print(f"获取概念板块数据失败: {e}")
+
+    print("概念板块使用模拟数据")
+    sectors = get_mock_hot_sectors()
+    with _cache_lock:
+        _cached_data[cache_key] = sectors
+        _last_fetch_time[cache_key] = time.time()
+    return sectors[:limit]
+
+
 def get_sector_stocks(sector_name, sector_type="industry"):
     """获取板块成分股"""
     cache_key = f"sector_{sector_name}_{sector_type}"
@@ -424,6 +533,7 @@ def clear_cache(cache_key=None):
             _concept_stocks_cache.clear()
 
     get_industry_sectors.cache_clear()
+    get_concept_sectors.cache_clear()
     get_market_metrics.cache_clear()
     print(f"[缓存] 已清除: {cache_key or '全部'}")
 
@@ -437,6 +547,46 @@ def _format_turnover_yi(turnover_yi):
     if v >= 10000:
         return f"{v / 10000:.2f}万亿"
     return f"{v:.0f}亿"
+
+
+@safe_akshare_call(default_return=0.0)
+def _fetch_turnover_from_index_em():
+    """从东方财富指数实时行情获取沪深成交额（单位：亿元）"""
+    if ak is None:
+        return 0.0
+    df = ak.stock_zh_index_spot_em(symbol="沪深重要指数")
+    if df is None or len(df) == 0:
+        return 0.0
+    sh_row = df[df["代码"] == "000001"]
+    sz_row = df[df["代码"] == "399001"]
+    if sh_row.empty or sz_row.empty:
+        return 0.0
+    sh_turnover = _safe_float(sh_row.iloc[0].get("成交额", 0))
+    sz_turnover = _safe_float(sz_row.iloc[0].get("成交额", 0))
+    total = sh_turnover + sz_turnover
+    if total <= 0:
+        return 0.0
+    return round(total / 1e8, 2)
+
+
+@safe_akshare_call(default_return=0.0)
+def _fetch_turnover_from_index_sina():
+    """从新浪指数实时行情获取沪深成交额（单位：亿元）"""
+    if ak is None:
+        return 0.0
+    df = ak.stock_zh_index_spot_sina()
+    if df is None or len(df) == 0:
+        return 0.0
+    sh_row = df[df["代码"] == "sh000001"]
+    sz_row = df[df["代码"] == "sz399001"]
+    if sh_row.empty or sz_row.empty:
+        return 0.0
+    sh_turnover = _safe_float(sh_row.iloc[0].get("成交额", 0))
+    sz_turnover = _safe_float(sz_row.iloc[0].get("成交额", 0))
+    total = sh_turnover + sz_turnover
+    if total <= 0:
+        return 0.0
+    return round(total / 1e8, 2)
 
 
 @safe_akshare_call(default_return=None)
@@ -525,17 +675,28 @@ def _index_metrics(df):
             ma200 = sum(closes) / len(closes)
             ma200_prev = ma200
 
+        ma20 = sum(closes[-20:]) / 20.0 if len(closes) >= 20 else close
+        ma60 = sum(closes[-60:]) / 60.0 if len(closes) >= 60 else close
+
         high52w = max(highs[-min(252, len(highs)) :])
         ret_60d = (close / closes[-60] - 1.0) if closes[-60] else 0.0
         drawdown_from_high = (high52w - close) / high52w if high52w else 0.0
+
+        up_days_5d = sum(1 for c in closes[-5:] if c > 0) if len(closes) >= 5 else 0
+        if len(closes) >= 6:
+            up_days_5d = sum(1 for i in range(-5, 0) if closes[i] > closes[i - 1])
 
         return {
             "close": round(close, 2),
             "ma200": round(ma200, 2),
             "ma200_slope_up": ma200 > ma200_prev,
+            "ma20": round(ma20, 2),
+            "ma60": round(ma60, 2),
+            "ma20_above_ma60": ma20 > ma60,
             "high52w": round(high52w, 2),
             "drawdown_from_high": round(drawdown_from_high, 4),
             "ret_60d": round(ret_60d, 4),
+            "up_days_5d": up_days_5d,
         }
     except Exception as e:
         print(f"[指数指标计算失败] {e}")
@@ -550,11 +711,34 @@ def get_market_metrics():
         with _cache_lock:
             return _cached_data.get(cache_key)
 
-    activity = _fetch_market_activity() or {}
-    total_turnover_yi = _safe_float(activity.get("total_turnover_yi"), 0.0)
+    total_turnover_yi = 0.0
+    turnover_source = ""
+
+    turnover_yi = _fetch_turnover_from_index_em()
+    if turnover_yi and turnover_yi > 0:
+        total_turnover_yi = turnover_yi
+        turnover_source = "em_index"
 
     if total_turnover_yi <= 0:
-        total_turnover_yi = _fetch_total_turnover_fallback() or 0.0
+        turnover_yi = _fetch_turnover_from_index_sina()
+        if turnover_yi and turnover_yi > 0:
+            total_turnover_yi = turnover_yi
+            turnover_source = "sina_index"
+
+    if total_turnover_yi <= 0:
+        activity_data = _fetch_market_activity() or {}
+        turnover_yi = _safe_float(activity_data.get("total_turnover_yi"), 0.0)
+        if turnover_yi > 0:
+            total_turnover_yi = turnover_yi
+            turnover_source = "legu"
+
+    if total_turnover_yi <= 0:
+        turnover_yi = _fetch_total_turnover_fallback() or 0.0
+        if turnover_yi > 0:
+            total_turnover_yi = turnover_yi
+            turnover_source = "em_spot"
+
+    activity = _fetch_market_activity() or {}
 
     sh_df = _fetch_index_history("sh000001")
     hs300_df = _fetch_index_history("sh000300")
@@ -562,6 +746,7 @@ def get_market_metrics():
     metrics = {
         "total_turnover_yi": round(total_turnover_yi, 2),
         "total_turnover_text": _format_turnover_yi(total_turnover_yi),
+        "turnover_source": turnover_source,
         "up_ratio": activity.get("up_ratio", 0.0),
         "up_count": activity.get("up_count", 0),
         "down_count": activity.get("down_count", 0),
@@ -585,6 +770,7 @@ def get_mock_market_metrics():
     return {
         "total_turnover_yi": 12345.6,
         "total_turnover_text": "1.23万亿",
+        "turnover_source": "mock",
         "up_ratio": 0.65,
         "up_count": 3200,
         "down_count": 1700,
@@ -592,17 +778,25 @@ def get_mock_market_metrics():
             "close": 3245.0,
             "ma200": 3120.0,
             "ma200_slope_up": True,
+            "ma20": 3220.0,
+            "ma60": 3180.0,
+            "ma20_above_ma60": True,
             "high52w": 3380.0,
             "drawdown_from_high": 0.04,
             "ret_60d": 0.12,
+            "up_days_5d": 3,
         },
         "hs300": {
             "close": 3850.0,
             "ma200": 3700.0,
             "ma200_slope_up": True,
+            "ma20": 3820.0,
+            "ma60": 3750.0,
+            "ma20_above_ma60": True,
             "high52w": 3980.0,
             "drawdown_from_high": 0.033,
             "ret_60d": 0.10,
+            "up_days_5d": 3,
         },
         "is_mock": True,
         "update_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

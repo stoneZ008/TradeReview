@@ -341,6 +341,7 @@ def _fetch_tencent_us(symbol, start_date, end_date):
         days = (end_dt - start_dt).days
         count = min(max(days + 60, 320), 1023)
         suffixes = [".OQ", ".N", ".OB"]
+        best_df = pd.DataFrame()
         for suffix in suffixes:
             full_code = f"us{sym}{suffix}"
             param = f"{full_code},day,,,{count},qfq"
@@ -385,8 +386,17 @@ def _fetch_tencent_us(symbol, start_date, end_date):
             if df.empty:
                 continue
             df["amount"] = df["close"] * df["volume"] / 1e6
+            # 数据过少可能是错误交易所的当日 stub，记录候选但继续尝试其他后缀
+            if len(df) < 10:
+                print(f"腾讯美股 {full_code} 数据过少 ({len(df)} 条)，尝试下一后缀")
+                if len(df) > len(best_df):
+                    best_df = df
+                continue
+            print(f"腾讯美股 {full_code} 数据 {len(df)} 条")
             return df
-        return pd.DataFrame()
+        if not best_df.empty:
+            print(f"腾讯美股 {symbol} 退化数据 {len(best_df)} 条")
+        return best_df
     except Exception as e:
         print(f"腾讯美股获取失败: {e}")
         return pd.DataFrame()
@@ -407,6 +417,11 @@ def _fetch_eastmoney_us(symbol, start_date, end_date, adjust):
     ]
     url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
     headers = {**_DEFAULT_HEADERS, "Referer": "https://quote.eastmoney.com/"}
+    try:
+        start_dt = datetime.strptime(start_date, "%Y%m%d")
+        end_dt = datetime.strptime(end_date, "%Y%m%d")
+    except Exception:
+        start_dt, end_dt = None, None
     for secid in secid_candidates:
         for ut in ut_candidates:
             params = {
@@ -446,6 +461,10 @@ def _fetch_eastmoney_us(symbol, start_date, end_date, adjust):
                     df = pd.DataFrame(records)
                     df = df.set_index("date")
                     df = df.sort_index()
+                    if start_dt is not None and end_dt is not None:
+                        df = df[(df.index >= start_dt) & (df.index <= end_dt)]
+                    if df.empty:
+                        continue
                     return df
             except Exception:
                 continue
@@ -518,31 +537,64 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
             ("东方财富", lambda: _fetch_eastmoney_us(symbol, start_date, end_date, adjust)),
             ("yfinance", lambda: _fetch_yfinance(symbol, start_date, end_date)),
         ]
+        US_COMPLETE_THRESHOLD = 30
+        US_FALLBACK_MIN_ROWS = 5
+        best_df = pd.DataFrame()
+        best_name = None
+        diagnostics = []
         for name, fn in us_fetchers:
             try:
                 df = fn()
                 if df is not None and not df.empty:
-                    print(f"美股 {symbol} 数据源: {name}, 共 {len(df)} 条")
+                    try:
+                        first = df.index.min().strftime("%Y-%m-%d")
+                        last = df.index.max().strftime("%Y-%m-%d")
+                    except Exception:
+                        first, last = "?", "?"
+                    diagnostics.append(f"{name}={len(df)}条[{first}~{last}]")
+                    if len(df) < US_COMPLETE_THRESHOLD:
+                        print(f"{name} 数据不完整 ({len(df)} 条 [{first}~{last}])，尝试下一源")
+                        if len(df) > len(best_df):
+                            best_df, best_name = df, name
+                        continue
+                    print(f"美股 {symbol} 数据源: {name}, 共 {len(df)} 条 [{first}~{last}]")
                     _cache_set(cache_key, df)
                     return df
+                diagnostics.append(f"{name}=空")
                 print(f"{name} 返回空数据")
             except Exception as e:
+                diagnostics.append(f"{name}=异常({type(e).__name__})")
                 print(f"{name} 异常: {e}")
+        # 所有源都不完整时，退而求其次返回最大那份（要求至少 5 条，避免误导性结果）
+        if not best_df.empty and len(best_df) >= US_FALLBACK_MIN_ROWS:
+            print(f"美股 {symbol} 退化数据源: {best_name}, 共 {len(best_df)} 条")
+            _cache_set(cache_key, best_df)
+            return best_df
         raise requests.exceptions.RequestException(
-            f"获取美股 {symbol} 数据失败（所有数据源均不可用，可能是API限流，稍后重试）。" f"代码示例：AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA"
+            f"获取美股 {symbol} 数据失败：所有数据源不可用或数据不足 {US_FALLBACK_MIN_ROWS} 条 "
+            f"[{'; '.join(diagnostics) if diagnostics else '全部为空'}]。"
+            f"可能原因：API 限流、股票代码已变更或该标的历史数据缺失。"
+            f"请稍后重试，或换用 AAPL/MSFT/GOOGL/AMZN/TSLA/NVDA 等主流标的。"
         )
 
-    # A 股：东方财富 → 腾讯 → 新浪
+    # A 股：腾讯 → 东方财富 → 新浪
     a_fetchers = [
-        ("东方财富", lambda: _fetch_eastmoney(symbol, start_date, end_date, adjust)),
         ("腾讯", lambda: _fetch_tencent_a(symbol, start_date, end_date)),
+        ("东方财富", lambda: _fetch_eastmoney(symbol, start_date, end_date, adjust)),
         ("新浪", lambda: _fetch_sina(symbol, start_date, end_date)),
     ]
     df = pd.DataFrame()
+    best_df = pd.DataFrame()
+    best_name = None
     for name, fn in a_fetchers:
         try:
             df = fn()
             if df is not None and not df.empty:
+                if len(df) < 10:
+                    print(f"{name} A股返回数据过少 ({len(df)} 条)，尝试下一源")
+                    if len(df) > len(best_df):
+                        best_df, best_name = df, name
+                    continue
                 print(f"A股 {symbol} 数据源: {name}, 共 {len(df)} 条")
                 break
             print(f"{name} 返回空数据")
@@ -551,8 +603,12 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
         except Exception as e:
             print(f"{name} 获取失败: {e}")
 
-    if df is None or df.empty:
-        raise requests.exceptions.RequestException(f"获取 {symbol} 数据失败")
+    if df is None or df.empty or len(df) < 10:
+        if not best_df.empty:
+            print(f"A股 {symbol} 退化数据源: {best_name}, 共 {len(best_df)} 条")
+            df = best_df
+        else:
+            raise requests.exceptions.RequestException(f"获取 {symbol} 数据失败")
 
     # 盘中：若末尾不是当日，用新浪实时行情拼一根当日 K 线
     df = _append_intraday_kline_a(symbol, df)
@@ -752,11 +808,32 @@ def _get_stock_info_yfinance(symbol):
         return None
 
 
+_INFO_CACHE = {}
+_INFO_CACHE_TTL = 300  # 5 分钟
+
+
 def get_stock_info(symbol):
     symbol = symbol.strip().upper()
     if symbol.startswith(("SH", "SZ")):
         symbol = symbol[2:]
 
+    cache_key = f"info:{symbol}"
+    with _CACHE_LOCK:
+        item = _INFO_CACHE.get(cache_key)
+        if item:
+            ts, info = item
+            if time.time() - ts <= _INFO_CACHE_TTL:
+                return info
+
+    result = _get_stock_info_impl(symbol)
+
+    with _CACHE_LOCK:
+        _INFO_CACHE[cache_key] = (time.time(), result)
+
+    return result
+
+
+def _get_stock_info_impl(symbol):
     # 美股：优先用新浪/腾讯实时行情（避免 yfinance.info 限流）
     if is_us_stock(symbol):
         for fn in [_get_stock_info_sina_us, _get_stock_info_tencent_us]:

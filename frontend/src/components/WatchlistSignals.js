@@ -34,6 +34,14 @@ function signalBadge(sig) {
   return <span style={{ color: 'var(--text-secondary)' }}>-</span>;
 }
 
+function todayStar(has) {
+  return has ? (
+    <span style={{ color: '#fbbf24', fontSize: '16px' }}>⭐</span>
+  ) : (
+    <span style={{ color: 'var(--text-secondary)' }}>-</span>
+  );
+}
+
 export default function WatchlistSignals({ onStockSelect }) {
   const [snapshots, setSnapshots] = useState([]);
   const [snapshotDate, setSnapshotDate] = useState('');
@@ -76,12 +84,13 @@ export default function WatchlistSignals({ onStockSelect }) {
     return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
   };
 
+  const hasAnySignal = (row) => row.has_signal_today || row.has_signal_today_v2;
+
   return (
     <div style={{
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      padding: '16px',
       overflow: 'hidden',
     }}>
       <div style={{
@@ -92,10 +101,10 @@ export default function WatchlistSignals({ onStockSelect }) {
         gap: '12px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>📊 自选股信号扫描</h3>
+          <h3 className="watchlist-signals-title" style={{ margin: 0, color: 'var(--text-primary)' }}>📊 自选股信号扫描</h3>
           {snapshotDate && (
             <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-              快照日期：{formatDate(snapshotDate)}
+              {formatDate(snapshotDate)}
             </span>
           )}
           <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
@@ -124,7 +133,7 @@ export default function WatchlistSignals({ onStockSelect }) {
       )}
 
       <div style={{ flex: 1, overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px' }}>
-        <table style={{
+        <table className="watchlist-signals-table" style={{
           width: '100%',
           borderCollapse: 'collapse',
           fontSize: '13px',
@@ -137,19 +146,26 @@ export default function WatchlistSignals({ onStockSelect }) {
             zIndex: 1,
           }}>
             <tr>
-              <th style={thStyle}>代码</th>
-              <th style={thStyle}>名称</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>最近收盘价</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>涨跌幅</th>
-              <th style={thStyle}>最近信号</th>
-              <th style={thStyle}>信号日期</th>
-              <th style={{ ...thStyle, textAlign: 'center' }}>今日触发</th>
+              <th className="col-code" style={thStyle} rowSpan={2}>代码</th>
+              <th style={thStyle} rowSpan={2}>名称</th>
+              <th className="col-close" style={{ ...thStyle, textAlign: 'right' }} rowSpan={2}>收盘价</th>
+              <th style={{ ...thStyle, textAlign: 'right' }} rowSpan={2}>涨跌幅</th>
+              <th style={{ ...thStyle, textAlign: 'center' }} colSpan={3}>默认策略</th>
+              <th style={{ ...thStyle, textAlign: 'center' }} colSpan={3}>激进策略</th>
+            </tr>
+            <tr>
+              <th style={{ ...thStyle, textAlign: 'center', fontSize: '12px' }}>信号</th>
+              <th className="col-date" style={{ ...thStyle, fontSize: '12px' }}>日期</th>
+              <th style={{ ...thStyle, textAlign: 'center', fontSize: '12px' }}>今日</th>
+              <th style={{ ...thStyle, textAlign: 'center', fontSize: '12px' }}>信号</th>
+              <th className="col-date" style={{ ...thStyle, fontSize: '12px' }}>日期</th>
+              <th style={{ ...thStyle, textAlign: 'center', fontSize: '12px' }}>今日</th>
             </tr>
           </thead>
           <tbody>
             {snapshots.length === 0 && !loading && (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
+                <td colSpan="10" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
                   暂无数据。请先添加 A 股到自选股。
                 </td>
               </tr>
@@ -161,28 +177,25 @@ export default function WatchlistSignals({ onStockSelect }) {
                 style={{
                   cursor: 'pointer',
                   borderTop: '1px solid var(--border-color)',
-                  background: row.has_signal_today ? 'rgba(251, 191, 36, 0.08)' : 'transparent',
+                  background: hasAnySignal(row) ? 'rgba(251, 191, 36, 0.08)' : 'transparent',
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59,130,246,0.08)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = row.has_signal_today ? 'rgba(251, 191, 36, 0.08)' : 'transparent'}
+                onMouseLeave={(e) => e.currentTarget.style.background = hasAnySignal(row) ? 'rgba(251, 191, 36, 0.08)' : 'transparent'}
               >
-                <td style={tdStyle}>{row.stock_code}</td>
+                <td className="col-code" style={tdStyle}>{row.stock_code}</td>
                 <td style={tdStyle}>{row.stock_name}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>
+                <td className="col-close" style={{ ...tdStyle, textAlign: 'right' }}>
                   {row.close_price !== null ? row.close_price.toFixed(2) : '-'}
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right', color: pctColor(row.pct_change), fontWeight: 600 }}>
                   {formatPct(row.pct_change)}
                 </td>
-                <td style={tdStyle}>{signalBadge(row.last_signal)}</td>
-                <td style={tdStyle}>{row.last_signal_date || '-'}</td>
-                <td style={{ ...tdStyle, textAlign: 'center' }}>
-                  {row.has_signal_today ? (
-                    <span style={{ color: '#fbbf24', fontSize: '16px' }}>⭐</span>
-                  ) : (
-                    <span style={{ color: 'var(--text-secondary)' }}>-</span>
-                  )}
-                </td>
+                <td style={{ ...tdStyle, textAlign: 'center' }}>{signalBadge(row.last_signal)}</td>
+                <td className="col-date" style={{ ...tdStyle, fontSize: '12px' }}>{row.last_signal_date || '-'}</td>
+                <td style={{ ...tdStyle, textAlign: 'center' }}>{todayStar(row.has_signal_today)}</td>
+                <td style={{ ...tdStyle, textAlign: 'center' }}>{signalBadge(row.last_signal_v2)}</td>
+                <td className="col-date" style={{ ...tdStyle, fontSize: '12px' }}>{row.last_signal_date_v2 || '-'}</td>
+                <td style={{ ...tdStyle, textAlign: 'center' }}>{todayStar(row.has_signal_today_v2)}</td>
               </tr>
             ))}
           </tbody>
@@ -199,7 +212,7 @@ export default function WatchlistSignals({ onStockSelect }) {
 }
 
 const thStyle = {
-  padding: '10px 12px',
+  padding: '8px 10px',
   textAlign: 'left',
   fontWeight: 600,
   color: 'var(--text-primary)',
@@ -207,5 +220,5 @@ const thStyle = {
 };
 
 const tdStyle = {
-  padding: '10px 12px',
+  padding: '8px 10px',
 };

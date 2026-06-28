@@ -48,6 +48,8 @@ def _signals_to_records(df, signals_df):
                 "kdj_d": round(row["kdj_d"], 2) if pd.notna(row["kdj_d"]) else None,
                 "kdj_j": round(row["kdj_j"], 2) if pd.notna(row["kdj_j"]) else None,
                 "vol_ratio": round(row["vol_ratio"], 2) if pd.notna(row["vol_ratio"]) else None,
+                "momentum_score": round(row["momentum_score"], 2) if pd.notna(row.get("momentum_score")) else None,
+                "momentum_level": row.get("momentum_level", "") if pd.notna(row.get("momentum_level")) else "",
                 "buy_score": round(row["buy_score"], 3),
                 "sell_score": round(row["sell_score"], 3),
                 "signal": int(row["signal"]),
@@ -138,6 +140,23 @@ def experimental_stock(symbol):
     sr_levels = find_support_resistance(df_with_indicators, n_support=1, n_resistance=1)
     volatility_info = signals_df.attrs.get("volatility_info", {})
     trade_advice = _calc_trade_advice(df_with_indicators, sr_levels["support_levels"], volatility_info)
+    latest_momentum = None
+    if len(df_with_indicators) > 0:
+        last_row = df_with_indicators.iloc[-1]
+        if pd.notna(last_row.get("momentum_score")):
+            latest_momentum = {
+                "score": round(float(last_row["momentum_score"]), 2),
+                "level": last_row.get("momentum_level", ""),
+                "factors": {
+                    "price_trend": round(float(last_row.get("mom_trend", 0)), 2),
+                    "ma_slope": round(float(last_row.get("mom_slope", 0)), 2),
+                    "price_change": round(float(last_row.get("mom_change", 0)), 2),
+                    "macd_momentum": round(float(last_row.get("mom_macd", 0)), 2),
+                    "rsi": round(float(last_row.get("mom_rsi", 0)), 2),
+                    "volume": round(float(last_row.get("mom_volume", 0)), 2),
+                    "position_52w": round(float(last_row.get("mom_position", 0)), 2),
+                },
+            }
     return jsonify(
         {
             "name": stock_info["name"] if stock_info else "",
@@ -151,6 +170,7 @@ def experimental_stock(symbol):
                 "total": len(records),
                 "buy_signals": len([r for r in records if r["signal"] == 1]),
                 "sell_signals": len([r for r in records if r["signal"] == -1]),
+                "latest_momentum": latest_momentum,
             },
         }
     )

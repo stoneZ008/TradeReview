@@ -12,6 +12,7 @@ import KDJStatus from './components/KDJStatus';
 import EquityChart from './components/EquityChart';
 import Watchlist from './components/Watchlist';
 import WatchlistSignals from './components/WatchlistSignals';
+import BatchSignalScanner from './components/BatchSignalScanner';
 import SignalPanel from './components/SignalPanel';
 import BacktestPanel from './components/BacktestPanel';
 import LoginPage from './pages/LoginPage';
@@ -20,7 +21,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import MobileTestPage from './pages/MobileTestPage';
-import { fetchStockData as apiFetchStockData, fetchExperimentalStock as apiFetchExperimentalStock, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist } from './api';
+import { fetchStockData as apiFetchStockData, fetchExperimentalStock as apiFetchExperimentalStock, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist, reorderWatchlist as apiReorderWatchlist } from './api';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -45,6 +46,8 @@ function HomePage() {
   const [inputSymbol, setInputSymbol] = useState('');
   const [activePage, setActivePage] = useState('shu');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [scanResults, setScanResults] = useState([]);
+  const [scanJsonText, setScanJsonText] = useState('');
 
   const hasDaoAccess = React.useMemo(() => {
     if (!user) return false;
@@ -62,6 +65,12 @@ function HomePage() {
     return roles.includes('admin') || roles.includes('super_admin');
   }, [user]);
 
+  const hasScanAccess = React.useMemo(() => {
+    if (!user) return false;
+    const roles = user.roles || [];
+    return roles.includes('admin') || roles.includes('super_admin');
+  }, [user]);
+
   React.useEffect(() => {
     if (!hasDaoAccess && activePage === 'dao') {
       setActivePage('shu');
@@ -69,7 +78,10 @@ function HomePage() {
     if (!hasHotspotAccess && activePage === 'hotspot') {
       setActivePage('shu');
     }
-  }, [hasDaoAccess, hasHotspotAccess, activePage]);
+    if (!hasScanAccess && activePage === 'scan') {
+      setActivePage('shu');
+    }
+  }, [hasDaoAccess, hasHotspotAccess, hasScanAccess, activePage]);
 
   const getCurrentDate = () => {
     const today = new Date();
@@ -79,7 +91,16 @@ function HomePage() {
     return `${year}${month}${day}`;
   };
 
-  const [startDate, setStartDate] = useState('20250101');
+  const getDateMonthsAgo = (months) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - months);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
+  };
+
+  const [startDate, setStartDate] = useState(getDateMonthsAgo(6));
   const [endDate, setEndDate] = useState(getCurrentDate());
   const [loading, setLoading] = useState(false);
   const [stockData, setStockData] = useState(null);
@@ -162,12 +183,28 @@ function HomePage() {
     }
   };
 
+  const handleReorderWatchlist = async (codes) => {
+    const prev = watchlist;
+    const ordered = codes
+      .map((code) => prev.find((s) => s.code === code))
+      .filter(Boolean);
+    const remaining = prev.filter((s) => !codes.includes(s.code));
+    setWatchlist([...ordered, ...remaining]);
+    try {
+      const data = await apiReorderWatchlist(codes);
+      setWatchlist(data);
+    } catch (e) {
+      console.error('排序自选股失败:', e);
+      setWatchlist(prev);
+    }
+  };
+
   const isMobileView = () => window.innerWidth <= 768;
 
   const trimDataForMobile = (data) => {
     if (!data?.data || !isMobileView()) return data;
-    if (data.data.length > 40) {
-      return { ...data, data: data.data.slice(-40) };
+    if (data.data.length > 30) {
+      return { ...data, data: data.data.slice(-30) };
     }
     return data;
   };
@@ -176,20 +213,26 @@ function HomePage() {
     if (!code) return;
     setLoading(true);
     try {
-      const [defaultResult, aggressiveResult] = await Promise.allSettled([
-        apiFetchStockData(code, startDate, endDate, rsiPeriod),
-        apiFetchExperimentalStock(code, startDate, endDate, rsiPeriod),
-      ]);
-      if (defaultResult.status === 'fulfilled') {
-        setStockData(trimDataForMobile(defaultResult.value));
+      if (activeChart === 'kline2') {
+        const [defaultResult, aggressiveResult] = await Promise.allSettled([
+          apiFetchStockData(code, startDate, endDate, rsiPeriod),
+          apiFetchExperimentalStock(code, startDate, endDate, rsiPeriod),
+        ]);
+        if (defaultResult.status === 'fulfilled') {
+          setStockData(trimDataForMobile(defaultResult.value));
+        } else {
+          throw defaultResult.reason;
+        }
+        if (aggressiveResult.status === 'fulfilled') {
+          setStockDataV2(trimDataForMobile(aggressiveResult.value));
+        } else {
+          setStockDataV2(null);
+          console.error('激进策略数据加载失败:', aggressiveResult.reason);
+        }
       } else {
-        throw defaultResult.reason;
-      }
-      if (aggressiveResult.status === 'fulfilled') {
-        setStockDataV2(trimDataForMobile(aggressiveResult.value));
-      } else {
+        const data = await apiFetchStockData(code, startDate, endDate, rsiPeriod);
+        setStockData(trimDataForMobile(data));
         setStockDataV2(null);
-        console.error('激进策略数据加载失败:', aggressiveResult.reason);
       }
     } catch (e) {
       alert(e.message || '获取数据失败，请确保后端服务已启动');
@@ -206,14 +249,32 @@ function HomePage() {
     setSymbol(targetCode);
     setLoading(true);
     try {
-      const data = await apiFetchStockData(targetCode, startDate, endDate, rsiPeriod);
-      setStockData(trimDataForMobile(data));
-      setStockDataV2(null);
+      if (activeChart === 'kline2') {
+        const [defaultResult, aggressiveResult] = await Promise.allSettled([
+          apiFetchStockData(targetCode, startDate, endDate, rsiPeriod),
+          apiFetchExperimentalStock(targetCode, startDate, endDate, rsiPeriod),
+        ]);
+        if (defaultResult.status === 'fulfilled') {
+          setStockData(trimDataForMobile(defaultResult.value));
+        } else {
+          throw defaultResult.reason;
+        }
+        if (aggressiveResult.status === 'fulfilled') {
+          setStockDataV2(trimDataForMobile(aggressiveResult.value));
+        } else {
+          setStockDataV2(null);
+          console.error('激进策略数据加载失败:', aggressiveResult.reason);
+        }
+      } else {
+        const data = await apiFetchStockData(targetCode, startDate, endDate, rsiPeriod);
+        setStockData(trimDataForMobile(data));
+        setStockDataV2(null);
+      }
     } catch (e) {
       alert(e.message || '获取数据失败，请确保后端服务已启动');
     }
     setLoading(false);
-  }, [symbol, startDate, endDate, rsiPeriod]);
+  }, [symbol, startDate, endDate, rsiPeriod, activeChart]);
 
   const fetchV2Data = async (code = symbol) => {
     if (!code) {
@@ -327,6 +388,14 @@ function HomePage() {
               热点洞察
             </button>
           )}
+          {hasScanAccess && (
+            <button
+              className={`nav-tab ${activePage === 'scan' ? 'active' : ''}`}
+              onClick={() => setActivePage('scan')}
+            >
+              个股洞察
+            </button>
+          )}
           <button
             className={`nav-tab ${activePage === 'shu' ? 'active' : ''}`}
             onClick={() => setActivePage('shu')}
@@ -405,14 +474,7 @@ function HomePage() {
                    >
                      个人中心
                    </Link>
-                   <Link
-                     to="/subscription"
-                     className="user-dropdown-item"
-                     onClick={() => setShowUserMenu(false)}
-                   >
-                     开通会员
-                   </Link>
-                    {(hasRole('admin') || hasRole('super_admin')) && (
+                     {(hasRole('admin') || hasRole('super_admin')) && (
                       <>
                         <Link
                           to="/admin"
@@ -447,9 +509,11 @@ function HomePage() {
         <DaoPage onStockSelect={handleStockSelectFromDao} />
       ) : activePage === 'hotspot' ? (
         <HotspotPage onStockSelect={handleStockSelectFromDao} />
+      ) : activePage === 'scan' ? (
+        <BatchSignalScanner onStockSelect={handleStockSelectFromDao} results={scanResults} setResults={setScanResults} jsonText={scanJsonText} setJsonText={setScanJsonText} />
       ) : (
         <div className="main-content">
-          <Watchlist watchlist={watchlist} onSelect={selectWatchStock} onRemove={handleRemoveFromWatchlist} />
+          <Watchlist watchlist={watchlist} onSelect={selectWatchStock} onRemove={handleRemoveFromWatchlist} onReorder={handleReorderWatchlist} />
 
           <div className="chart-section">
             <div className="chart-tabs">
@@ -465,7 +529,7 @@ function HomePage() {
               <button className={`tab mobile-hidden ${activeChart === 'kdj' ? 'active' : ''}`} onClick={() => handleChartChange('kdj')}>
                 KDJ
               </button>
-              <button className={`tab mobile-hidden ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => handleChartChange('signals')}>
+              <button className={`tab ${activeChart === 'signals' ? 'active' : ''}`} onClick={() => handleChartChange('signals')}>
                 信号扫描
               </button>
               {backtestResult && (
@@ -477,11 +541,11 @@ function HomePage() {
 
             <div className="chart-legend">
               <div className="legend-item">
-                <div className="legend-dot" style={{ background: '#ef4444' }}></div>
+                <div className="legend-dot" style={{ background: '#fa3e3e' }}></div>
                 <span>B 买入</span>
               </div>
               <div className="legend-item">
-                <div className="legend-dot" style={{ background: '#3b82f6' }}></div>
+                <div className="legend-dot" style={{ background: '#3a8eff' }}></div>
                 <span>S 卖出</span>
               </div>
             </div>
