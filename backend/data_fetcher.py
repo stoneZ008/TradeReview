@@ -117,6 +117,168 @@ def _fetch_eastmoney(symbol, start_date, end_date, adjust):
     return pd.DataFrame()
 
 
+def _minute_default_days(klt):
+    """分钟K线默认回看天数
+
+    15/30/60分钟线：回看12个交易日（约17个日历日）
+    5/1分钟线：回看7天（5分钟线7天约288根，已足够）
+    """
+    return 17 if int(klt) >= 15 else 7
+
+
+def _fetch_sina_minute(symbol, klt, datalen):
+    """新浪分钟K线接口（返回最近datalen根，仅支持5/15/30/60分钟，仅A股）"""
+    prefix = _get_sina_prefix(symbol)
+    url = "https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData"
+    r = requests.get(
+        url,
+        params={"symbol": prefix, "scale": str(klt), "ma": "no", "datalen": str(datalen)},
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=15,
+    )
+    items = json.loads(r.text)
+    if not items:
+        return pd.DataFrame()
+    records = []
+    for item in items:
+        records.append(
+            {
+                "date": pd.to_datetime(item["day"]),
+                "open": float(item["open"]),
+                "close": float(item["close"]),
+                "high": float(item["high"]),
+                "low": float(item["low"]),
+                "volume": float(item["volume"]),
+            }
+        )
+    df = pd.DataFrame(records)
+    df = df.set_index("date")
+    return df.sort_index()
+
+
+def _fetch_eastmoney_minute(symbol, klt, lmt):
+    """东方财富分钟K线（网页端标准取法：beg=0&end=20500101 取最近N根；支持全部周期及美股）"""
+    secid_list = get_market_code(symbol)
+    url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://quote.eastmoney.com/",
+    }
+    for secid in secid_list:
+        params = {
+            "secid": secid,
+            "fields1": "f1,f2,f3,f4,f5,f6",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+            "klt": str(klt),
+            "fqt": "1",
+            "beg": "0",
+            "end": "20500101",
+            "lmt": str(lmt),
+            "ut": "fa5fd1943c7b386f172d6893dbfba10b",
+        }
+        response = requests.get(url, params=params, headers=headers, timeout=30)
+        data = response.json()
+        klines = data.get("data", {}).get("klines") if data.get("data") else None
+        if not klines:
+            continue
+        records = []
+        for line in klines:
+            parts = line.split(",")
+            # 分钟K线日期字段格式: "YYYY-MM-DD HH:MM"
+            records.append(
+                {
+                    "date": pd.to_datetime(parts[0]),
+                    "open": float(parts[1]),
+                    "close": float(parts[2]),
+                    "high": float(parts[3]),
+                    "low": float(parts[4]),
+                    "volume": float(parts[5]),
+                    "amount": float(parts[6]),
+                }
+            )
+        df = pd.DataFrame(records)
+        df = df.set_index("date")
+        return df.sort_index()
+    return pd.DataFrame()
+
+
+def fetch_minute_kline(symbol, klt=5, beg=None, end=None):
+    """获取分钟级K线数据（多源：新浪 -> 东方财富，与日线多源架构一致）
+
+    Parameters:
+        symbol: 股票代码（纯数字）
+        klt: K线周期 (1=1分钟, 5=5分钟, 15=15分钟, 30=30分钟, 60=60分钟)
+        beg: 开始日期 YYYYMMDD（默认近7天）
+        end: 结束日期 YYYYMMDD（默认今天）
+
+    说明：
+        各数据源均返回"最近N根"（东方财富日期范围参数对分钟周期不可靠，不使用），
+        拉回后统一在本地按日期范围过滤。
+    """
+    symbol = symbol.strip().upper()
+    if symbol.startswith(("SH", "SZ")):
+        symbol = symbol[2:]
+
+    if end is None:
+        end = datetime.now().strftime("%Y%m%d")
+    if beg is None:
+        beg = (datetime.now() - timedelta(days=_minute_default_days(klt))).strftime("%Y%m%d")
+
+    cache_key = f"minute:{symbol}:{klt}:{beg}:{end}"
+    cached = _cache_get(cache_key)
+    if cached is not None and not cached.empty:
+        return cached
+
+    # 本地日期过滤边界
+    try:
+        beg_dt = pd.Timestamp(datetime.strptime(beg, "%Y%m%d"))
+        end_dt = pd.Timestamp(datetime.strptime(end, "%Y%m%d")) + pd.Timedelta(days=1)
+    except ValueError:
+        beg_dt, end_dt = None, None
+
+    # 估算拉取根数：每交易日约 240/klt 根，按日历跨度放大冗余
+    try:
+        days_span = (datetime.strptime(end, "%Y%m%d") - datetime.strptime(beg, "%Y%m%d")).days + 1
+    except ValueError:
+        days_span = 7
+    bars_per_day = max(240 // int(klt), 1)
+    lmt = min(max(int(bars_per_day * max(days_span, 1) * 2) + 50, 100), 1800)
+
+    def _apply_range(df):
+        """过滤到请求的日期范围；若过滤后为空（时钟偏差/数据边界）则回退返回最近数据"""
+        if beg_dt is None or df.empty:
+            return df
+        filtered = df[(df.index >= beg_dt) & (df.index < end_dt)]
+        return filtered if not filtered.empty else df
+
+    sources = []
+    # 新浪：分钟数据稳定，但仅支持5/15/30/60分钟且仅A股
+    if int(klt) != 1 and not is_us_stock(symbol):
+        sources.append(("新浪", lambda: _fetch_sina_minute(symbol, int(klt), lmt)))
+    # 东方财富：支持全部周期（含1分钟）及美股
+    sources.append(("东方财富", lambda: _fetch_eastmoney_minute(symbol, int(klt), lmt)))
+
+    any_success = False
+    for name, fn in sources:
+        try:
+            df = fn()
+            any_success = True
+        except Exception as e:
+            print(f"{name}分钟K线获取失败({symbol}, klt={klt}): {e}")
+            continue
+        if df is not None and not df.empty:
+            df = _apply_range(df)
+            if not df.empty:
+                _cache_set(cache_key, df)
+                return df
+
+    # 全部数据源网络请求失败时抛出明确异常（避免误报"非交易日"）
+    if not any_success:
+        raise requests.exceptions.RequestException("分钟K线数据源（新浪/东方财富）均不可达，请稍后重试")
+
+    return pd.DataFrame()
+
+
 def _fetch_sina(symbol, start_date, end_date):
     prefix = _get_sina_prefix(symbol)
     url = "https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData"
@@ -340,7 +502,7 @@ def _fetch_tencent_us(symbol, start_date, end_date):
         end_dt = datetime.strptime(end_date, "%Y%m%d")
         days = (end_dt - start_dt).days
         count = min(max(days + 60, 320), 1023)
-        suffixes = [".OQ", ".N", ".OB"]
+        suffixes = [".OQ", ".N", ".AM", ".OB"]
         best_df = pd.DataFrame()
         for suffix in suffixes:
             full_code = f"us{sym}{suffix}"
@@ -617,10 +779,40 @@ def fetch_stock_data(symbol, start_date=None, end_date=None, adjust="qfq"):
     return df
 
 
-def search_stock(keyword):
-    url = "https://searchapi.eastmoney.com/api/suggest/get"
-    params = {"type": "14", "token": "D43BF722C8E33BDC906FB84D85E326E8", "count": "20", "query": keyword}
+def _search_us_tencent(keyword):
+    """腾讯智能搜索美股（股票/ETF），A股搜索覆盖不到美股"""
     try:
+        url = "https://smartbox.gtimg.cn/s3/"
+        headers = {**_DEFAULT_HEADERS, "Referer": "https://gu.qq.com/"}
+        r = requests.get(url, params={"q": keyword, "t": "all"}, headers=headers, timeout=10)
+        r.encoding = "gbk"
+        text = r.text.strip()
+        if '="' not in text:
+            return []
+        content = text.split('="', 1)[1].rstrip('"')
+        stocks = []
+        for seg in content.split("^"):
+            parts = seg.strip().split("~")
+            # 格式: us~gdx.am~金矿开采商etfvaneck~jkkcsetfvaneck~GP
+            if len(parts) < 3 or parts[0] != "us":
+                continue
+            code = parts[1].split(".")[0].upper()
+            # 接口返回的中文是 \uXXXX 字面转义，需还原
+            name = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), parts[2])
+            if not code or not name:
+                continue
+            stocks.append({"代码": code, "名称": name, "市场": "美股"})
+        return stocks
+    except Exception as e:
+        print(f"腾讯美股搜索失败: {e}")
+        return []
+
+
+def search_stock(keyword):
+    a_stocks = []
+    try:
+        url = "https://searchapi.eastmoney.com/api/suggest/get"
+        params = {"type": "14", "token": "D43BF722C8E33BDC906FB84D85E326E8", "count": "20", "query": keyword}
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": "https://www.eastmoney.com/",
@@ -628,7 +820,6 @@ def search_stock(keyword):
         response = requests.get(url, params=params, headers=headers, timeout=10)
         data = response.json()
         if data.get("QuotationCodeTable") and data["QuotationCodeTable"].get("Data"):
-            stocks = []
             for item in data["QuotationCodeTable"]["Data"]:
                 code = item.get("Code", "")
                 name = item.get("Name", "")
@@ -636,13 +827,23 @@ def search_stock(keyword):
                 if market in [1, 0] and (
                     code.startswith("6") or code.startswith("0") or code.startswith("3") or code.startswith("688")
                 ):
-                    stocks.append({"代码": code, "名称": name, "市场": "沪市" if market == 1 else "深市"})
-            return pd.DataFrame(stocks) if stocks else get_default_stock_list()
-        else:
-            return get_default_stock_list()
+                    a_stocks.append({"代码": code, "名称": name, "市场": "沪市" if market == 1 else "深市"})
     except Exception as e:
         print(f"搜索失败: {e}")
-        return get_default_stock_list()
+
+    us_stocks = _search_us_tencent(keyword)
+
+    if a_stocks or us_stocks:
+        # 合并去重，A股在前美股在后
+        seen = set()
+        merged = []
+        for s in a_stocks + us_stocks:
+            if s["代码"] not in seen:
+                seen.add(s["代码"])
+                merged.append(s)
+        return pd.DataFrame(merged)
+
+    return get_default_stock_list()
 
 
 def get_default_stock_list(include_us=False):
@@ -749,7 +950,7 @@ def _get_stock_info_tencent_us(symbol):
     """腾讯美股实时行情（备用）"""
     try:
         sym = symbol.upper().replace(".", "_")
-        for suffix in [".OQ", ".N", ".OB"]:
+        for suffix in [".OQ", ".N", ".AM", ".OB"]:
             url = f"http://qt.gtimg.cn/q=us{sym}{suffix}"
             headers = {**_DEFAULT_HEADERS, "Referer": "https://gu.qq.com/"}
             r = requests.get(url, headers=headers, timeout=10)

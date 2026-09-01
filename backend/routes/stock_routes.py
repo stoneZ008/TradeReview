@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 
 from routes import stock_bp
-from data_fetcher import fetch_stock_data, search_stock, get_stock_info
+from data_fetcher import fetch_stock_data, fetch_minute_kline, search_stock, get_stock_info
 from indicators import calculate_all_indicators, find_support_resistance
 from strategies import generate_trading_signals
 from backtest import run_backtest
@@ -56,7 +56,7 @@ def get_stock_data(symbol):
     signals_df = generate_trading_signals(df_with_indicators, {"buy_threshold": 0.08, "sell_threshold": 0.12})
 
     result_df = df_with_indicators.copy()
-    for col in ["buy_score", "sell_score", "signal"]:
+    for col in ["buy_score", "sell_score", "signal", "buy_alert"]:
         result_df[col] = signals_df[col]
 
     records = []
@@ -88,6 +88,7 @@ def get_stock_data(symbol):
             "buy_score": round(row["buy_score"], 3),
             "sell_score": round(row["sell_score"], 3),
             "signal": int(row["signal"]),
+            "buy_alert": int(row.get("buy_alert", 0)),
             "kline_pattern": row.get("kline_pattern", ""),
             "candle_pattern": row.get("candle_pattern", ""),
         }
@@ -95,6 +96,7 @@ def get_stock_data(symbol):
 
     buy_points = [r for r in records if r["signal"] == 1]
     sell_points = [r for r in records if r["signal"] == -1]
+    buy_alerts = [r for r in records if r.get("buy_alert") == 1]
 
     # 计算支撑位和压力位
     sr_levels = find_support_resistance(df_with_indicators, n_support=2, n_resistance=2)
@@ -128,6 +130,7 @@ def get_stock_data(symbol):
                 "total": len(records),
                 "buy_signals": len(buy_points),
                 "sell_signals": len(sell_points),
+                "buy_alerts": len(buy_alerts),
                 "latest_momentum": latest_momentum,
             },
         }
@@ -194,6 +197,87 @@ def backtest():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@stock_bp.route("/stock/<symbol>/minute", methods=["GET"])
+@requires_permission("stock:read")
+@requires_us_market
+def get_minute_kline(symbol):
+    """获取分钟级K线数据"""
+    klt = int(request.args.get("klt", 5))
+    date = request.args.get("date", "")
+
+    try:
+        # 默认回看范围由 fetch_minute_kline 按周期动态计算（保证至少约48根）
+        if date:
+            df = fetch_minute_kline(symbol, klt, date, date)
+        else:
+            df = fetch_minute_kline(symbol, klt)
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 503
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    if df.empty:
+        return jsonify({"error": "未找到该股票分钟数据（可能非交易日）"}), 404
+
+    # 计算技术指标（MA/MACD/BOLL等，复用日线逻辑）
+    df_with_indicators = calculate_all_indicators(df)
+
+    # 60/30分钟线生成买卖信号（复用日线组合策略，含下跌趋势买入预警）
+    # 分钟K线震荡多于日线，日线阈值(0.08/0.12)会产生30%+的信号密度，故调高至0.13/0.15
+    if klt >= 30:
+        signals_df = generate_trading_signals(df_with_indicators, {"buy_threshold": 0.13, "sell_threshold": 0.15})
+        for col in ["buy_score", "sell_score", "signal", "buy_alert"]:
+            df_with_indicators[col] = signals_df[col]
+    else:
+        df_with_indicators["buy_score"] = 0.0
+        df_with_indicators["sell_score"] = 0.0
+        df_with_indicators["signal"] = 0
+        df_with_indicators["buy_alert"] = 0
+
+    records = []
+    for ts, row in df_with_indicators.iterrows():
+        record = {
+            "date": ts.strftime("%Y-%m-%d %H:%M"),
+            "open": round(row["open"], 2),
+            "high": round(row["high"], 2),
+            "low": round(row["low"], 2),
+            "close": round(row["close"], 2),
+            "volume": int(row["volume"]),
+            "ma5": round(row["ma5"], 2) if pd.notna(row["ma5"]) else None,
+            "ma10": round(row["ma10"], 2) if pd.notna(row["ma10"]) else None,
+            "ma20": round(row["ma20"], 2) if pd.notna(row["ma20"]) else None,
+            "boll_upper": round(row["boll_upper"], 2) if pd.notna(row["boll_upper"]) else None,
+            "boll_middle": round(row["boll_middle"], 2) if pd.notna(row["boll_middle"]) else None,
+            "boll_lower": round(row["boll_lower"], 2) if pd.notna(row["boll_lower"]) else None,
+            "macd": round(row["macd"], 4) if pd.notna(row["macd"]) else None,
+            "macd_signal": round(row["macd_signal"], 4) if pd.notna(row["macd_signal"]) else None,
+            "macd_hist": round(row["macd_hist"], 4) if pd.notna(row["macd_hist"]) else None,
+            "vol_ratio": round(row["vol_ratio"], 2) if pd.notna(row["vol_ratio"]) else None,
+            "buy_score": round(float(row["buy_score"]), 3),
+            "sell_score": round(float(row["sell_score"]), 3),
+            "signal": int(row["signal"]),
+            "buy_alert": int(row.get("buy_alert", 0)),
+        }
+        records.append(record)
+
+    buy_points = [r for r in records if r["signal"] == 1]
+    sell_points = [r for r in records if r["signal"] == -1]
+    buy_alerts = [r for r in records if r["buy_alert"] == 1]
+
+    return jsonify(
+        {
+            "symbol": symbol,
+            "data": records,
+            "summary": {
+                "total": len(records),
+                "buy_signals": len(buy_points),
+                "sell_signals": len(sell_points),
+                "buy_alerts": len(buy_alerts),
+            },
+        }
+    )
 
 
 @stock_bp.route("/indicators", methods=["POST"])

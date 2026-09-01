@@ -169,6 +169,14 @@ export async function fetchStockData(symbol, startDate, endDate, rsiPeriod = 14)
   return data;
 }
 
+export async function fetchMinuteKline(symbol, klt = 5, date = '') {
+  const params = date ? `?klt=${klt}&date=${date}` : `?klt=${klt}`;
+  const res = await fetchWithAuth(`${API_BASE}/stock/${symbol}/minute${params}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
 export async function runBacktest(symbol, startDate, endDate, config = {}) {
   const body = {
     symbol,
@@ -346,5 +354,90 @@ export async function saveBatchScanPreset(content) {
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || '保存预设失败');
+  return data;
+}
+
+export async function getStrategyTemplates() {
+  const res = await fetchWithAuth(`${API_BASE}/strategy/templates`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.data || [];
+}
+
+export async function getStrategyDefault() {
+  const res = await fetchWithAuth(`${API_BASE}/strategy/default`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.data;
+}
+
+export async function getStrategyPresets() {
+  const res = await fetchWithAuth(`${API_BASE}/strategy/presets`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.data || [];
+}
+
+export async function getStrategyPresetDetail(presetKey) {
+  const res = await fetchWithAuth(`${API_BASE}/strategy/presets/${presetKey}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.data;
+}
+
+export async function getStockStrategyConfigs(symbol) {
+  const res = await fetchWithAuth(`${API_BASE}/strategy/stock/${symbol}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.data || [];
+}
+
+export async function saveStockStrategyConfig(symbol, config, configName = '默认', stockName = '', isDefault = true) {
+  const res = await fetchWithAuth(`${API_BASE}/strategy/stock/${symbol}`, {
+    method: 'POST',
+    body: JSON.stringify({ config, config_name: configName, stock_name: stockName, is_default: isDefault }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function deleteStockStrategyConfig(symbol, configName = '默认') {
+  const res = await fetchWithAuth(`${API_BASE}/strategy/stock/${symbol}?config_name=${encodeURIComponent(configName)}`, {
+    method: 'DELETE',
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function strategyPreview(symbol, startDate, endDate, config, rsiPeriod = 14) {
+  const res = await fetchWithAuth(`${API_BASE}/strategy/preview`, {
+    method: 'POST',
+    body: JSON.stringify({ symbol, start_date: startDate, end_date: endDate, config, rsi_period: rsiPeriod }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+export async function strategyBacktest(symbol, startDate, endDate, config, rsiPeriod = 14) {
+  const body = {
+    symbol,
+    start_date: startDate,
+    end_date: endDate,
+    config: {
+      initial_capital: 100000,
+      commission_rate: 0.001,
+      ...config,
+    },
+    rsi_period: rsiPeriod,
+  };
+  const res = await fetchWithAuth(`${API_BASE}/strategy/backtest`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
   return data;
 }

@@ -7,7 +7,7 @@ from datetime import timedelta
 
 from industry_db import seed_default_data
 from user_db import seed_initial_data
-from routes import auth_bp, stock_bp, admin_bp, watchlist_bp, industry_bp, billing_bp, hotspot_bp, experimental_bp, batch_scan_bp
+from routes import auth_bp, stock_bp, admin_bp, watchlist_bp, industry_bp, billing_bp, hotspot_bp, experimental_bp, batch_scan_bp, strategy_bp
 from scheduler import init_scheduler
 
 
@@ -34,6 +34,7 @@ def create_app():
     app.register_blueprint(hotspot_bp)
     app.register_blueprint(experimental_bp)
     app.register_blueprint(batch_scan_bp)
+    app.register_blueprint(strategy_bp)
 
     @app.route("/api/health", methods=["GET"])
     def health():

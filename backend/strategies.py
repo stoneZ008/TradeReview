@@ -166,14 +166,15 @@ class VolumeBreakout(TradingStrategy):
     条件: 成交量放大，价格突破前高
     """
 
-    def __init__(self, weight=1.0):
+    def __init__(self, weight=1.0, ratio=2.0):
         super().__init__("放量突破", weight, strategy_type="buy")
+        self.ratio = ratio
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
 
         # 放量
-        high_volume = df["vol_ratio"] >= 2.0
+        high_volume = df["vol_ratio"] >= self.ratio
 
         # 价格突破前高
         break_high = df["close"] > df["high"].shift(1)
@@ -191,20 +192,21 @@ class VolumeBreakout(TradingStrategy):
 class RSIOversold(TradingStrategy):
     """
     RSI超卖买入策略
-    条件: RSI < 30（超卖区）并开始回升
+    条件: RSI < 阈值（默认30，超卖区）并开始回升
     """
 
-    def __init__(self, weight=1.0):
+    def __init__(self, weight=1.0, threshold=30):
         super().__init__("RSI超卖", weight, strategy_type="buy")
+        self.threshold = threshold
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
 
         # RSI超卖
-        oversold = df["rsi"] < 30
+        oversold = df["rsi"] < self.threshold
 
         # 前一日超卖
-        was_oversold = df["rsi"].shift(1) < 30
+        was_oversold = df["rsi"].shift(1) < self.threshold
 
         # 开始回升
         now_rising = df["rsi"] > df["rsi"].shift(1)
@@ -221,8 +223,9 @@ class KDJGoldenCross(TradingStrategy):
     条件: K线上穿D线，且在超卖区
     """
 
-    def __init__(self, weight=1.0):
+    def __init__(self, weight=1.0, threshold=30):
         super().__init__("KDJ金叉", weight, strategy_type="buy")
+        self.threshold = threshold
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
@@ -231,7 +234,7 @@ class KDJGoldenCross(TradingStrategy):
         golden_cross = (df["kdj_k"] > df["kdj_d"]) & (df["kdj_k"].shift(1) <= df["kdj_d"].shift(1))
 
         # 在超卖区金叉更可靠
-        oversold = df["kdj_k"] < 30
+        oversold = df["kdj_k"] < self.threshold
 
         buy_signal = golden_cross & oversold
         signals[buy_signal] = 1
@@ -425,20 +428,21 @@ class ConsecutiveDecline(TradingStrategy):
 class RSIOverbought(TradingStrategy):
     """
     RSI超买卖出策略
-    条件: RSI > 70（超买区）并开始回落
+    条件: RSI > 阈值（默认70，超买区）并开始回落
     """
 
-    def __init__(self, weight=1.0):
+    def __init__(self, weight=1.0, threshold=70):
         super().__init__("RSI超买", weight, strategy_type="sell")
+        self.threshold = threshold
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
 
         # RSI超买
-        overbought = df["rsi"] > 70
+        overbought = df["rsi"] > self.threshold
 
         # 前一日超买
-        was_overbought = df["rsi"].shift(1) > 70
+        was_overbought = df["rsi"].shift(1) > self.threshold
 
         # 开始回落
         now_falling = df["rsi"] < df["rsi"].shift(1)
@@ -455,8 +459,9 @@ class KDJDeathCross(TradingStrategy):
     条件: K线下穿D线，且在超买区
     """
 
-    def __init__(self, weight=1.0):
+    def __init__(self, weight=1.0, threshold=100):
         super().__init__("KDJ死叉", weight, strategy_type="sell")
+        self.threshold = threshold
 
     def generate_signals(self, df):
         signals = pd.Series(0, index=df.index)
@@ -464,8 +469,8 @@ class KDJDeathCross(TradingStrategy):
         # KDJ死叉
         death_cross = (df["kdj_k"] < df["kdj_d"]) & (df["kdj_k"].shift(1) >= df["kdj_d"].shift(1))
 
-        # 在超买区（J > 100）
-        overbought = df["kdj_j"] > 100
+        # 在超买区（J > 阈值）
+        overbought = df["kdj_j"] > self.threshold
 
         sell_signal = death_cross & overbought
         signals[sell_signal] = -1
@@ -590,6 +595,29 @@ class CompositeStrategy:
                 else:
                     last_sell_idx = i
 
+        # 下跌趋势买入预警：首次买入信号标记为预警，连续第二次才确认为买入
+        buy_alert = pd.Series(0, index=df.index)
+        pending_buy_alert = False
+
+        for i in range(len(final_signal)):
+            if trend.iloc[i] == -1:
+                # 下跌趋势中
+                if final_signal.iloc[i] == 1:
+                    if pending_buy_alert:
+                        # 第二次买入信号 -> 确认为买入
+                        pending_buy_alert = False
+                    else:
+                        # 第一次买入信号 -> 降级为预警，不触发买入
+                        pending_buy_alert = True
+                        final_signal.iloc[i] = 0
+                        buy_alert.iloc[i] = 1
+                elif final_signal.iloc[i] == -1:
+                    # 出现卖出信号，重置预警状态
+                    pending_buy_alert = False
+            else:
+                # 非下跌趋势，重置预警状态，买入信号正常生效
+                pending_buy_alert = False
+
         return pd.DataFrame(
             {
                 "buy_score": buy_score,
@@ -597,6 +625,7 @@ class CompositeStrategy:
                 "signal": final_signal,
                 "trend": trend,
                 "composite_score": buy_score - sell_score,
+                "buy_alert": buy_alert,
             },
             index=df.index,
         )

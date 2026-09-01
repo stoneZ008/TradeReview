@@ -99,6 +99,17 @@ SCHEMA_COLUMNS = {
         ("user_agent", "TEXT"),
         ("created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
     ],
+    "user_stock_strategies": [
+        ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+        ("user_id", "INTEGER NOT NULL"),
+        ("stock_code", "TEXT NOT NULL"),
+        ("stock_name", "TEXT DEFAULT ''"),
+        ("config_name", "TEXT NOT NULL DEFAULT '默认'"),
+        ("config_json", "TEXT NOT NULL DEFAULT '{}'"),
+        ("is_default", "INTEGER DEFAULT 0"),
+        ("created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+        ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+    ],
 }
 
 
@@ -274,6 +285,27 @@ def init_user_db():
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         )
     """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_stock_strategies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            stock_code TEXT NOT NULL,
+            stock_name TEXT DEFAULT '',
+            config_name TEXT NOT NULL DEFAULT '默认',
+            config_json TEXT NOT NULL DEFAULT '{}',
+            is_default INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, stock_code, config_name),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    """
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_uss_user_stock ON user_stock_strategies(user_id, stock_code)"
     )
 
     conn.commit()

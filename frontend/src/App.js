@@ -15,13 +15,14 @@ import WatchlistSignals from './components/WatchlistSignals';
 import BatchSignalScanner from './components/BatchSignalScanner';
 import SignalPanel from './components/SignalPanel';
 import BacktestPanel from './components/BacktestPanel';
+import StrategyConfigPanel from './components/StrategyConfigPanel';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import MobileTestPage from './pages/MobileTestPage';
-import { fetchStockData as apiFetchStockData, fetchExperimentalStock as apiFetchExperimentalStock, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist, reorderWatchlist as apiReorderWatchlist } from './api';
+import { fetchStockData as apiFetchStockData, fetchExperimentalStock as apiFetchExperimentalStock, fetchMinuteKline as apiFetchMinuteKline, runBacktest as apiRunBacktest, loadWatchlist as apiLoadWatchlist, addToWatchlist as apiAddToWatchlist, removeFromWatchlist as apiRemoveFromWatchlist, reorderWatchlist as apiReorderWatchlist } from './api';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -106,6 +107,8 @@ function HomePage() {
   const [stockData, setStockData] = useState(null);
   const [stockDataV2, setStockDataV2] = useState(null);
   const [activeChart, setActiveChart] = useState('kline');
+  const [klinePeriod, setKlinePeriod] = useState('daily');
+  const [minuteData, setMinuteData] = useState(null);
   const [activeTab, setActiveTab] = useState('signals');
   const [backtestResult, setBacktestResult] = useState(null);
   const [watchlist, setWatchlist] = useState([]);
@@ -117,6 +120,24 @@ function HomePage() {
       handleLoadWatchlist();
     }
   }, [isAuthenticated]);
+
+  React.useEffect(() => {
+    if (klinePeriod !== 'daily' && symbol) {
+      setLoading(true);
+      apiFetchMinuteKline(symbol, parseInt(klinePeriod))
+        .then((data) => {
+          setMinuteData(data);
+          setLoading(false);
+        })
+        .catch((e) => {
+          alert(e.message || '获取分钟K线失败（可能非交易日）');
+          setLoading(false);
+          setKlinePeriod('daily');
+        });
+    } else {
+      setMinuteData(null);
+    }
+  }, [klinePeriod, symbol]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -294,12 +315,20 @@ function HomePage() {
 
   const handleChartChange = (chart) => {
     setActiveChart(chart);
+    if (chart !== 'kline' && chart !== 'kline2') {
+      setKlinePeriod('daily');
+    }
     if (chart === 'kline2') {
       fetchV2Data();
     }
   };
 
-  const getActiveStockData = () => activeChart === 'kline2' ? stockDataV2 : stockData;
+  const getActiveStockData = () => {
+    if (klinePeriod !== 'daily' && (activeChart === 'kline' || activeChart === 'kline2')) {
+      return minuteData;
+    }
+    return activeChart === 'kline2' ? stockDataV2 : stockData;
+  };
 
   const runBacktest = async () => {
     if (!isAuthenticated) {
@@ -342,8 +371,8 @@ function HomePage() {
       );
       case 'signals': return <WatchlistSignals onStockSelect={handleStockSelectFromDao} />;
       case 'backtest': return <EquityChart backtestResult={backtestResult} stockData={stockData} symbol={symbol} />;
-      case 'kline2': return <KlineChart stockData={stockDataV2} symbol={symbol} titleSuffix="（激进策略）" showLatestInfo hideLegendItems={['K线', 'MACD柱']} />;
-      default: return <KlineChart stockData={stockData} symbol={symbol} hideLegendItems={['K线', 'MACD柱']} />;
+      case 'kline2': return <KlineChart stockData={klinePeriod !== 'daily' ? minuteData : stockDataV2} symbol={symbol} titleSuffix={klinePeriod !== 'daily' ? `（${klinePeriod}分K）` : '（激进策略）'} showLatestInfo hideLegendItems={['K线', 'MACD柱']} />;
+      default: return <KlineChart stockData={klinePeriod !== 'daily' ? minuteData : stockData} symbol={symbol} hideLegendItems={['K线', 'MACD柱']} />;
     }
   };
 
@@ -539,10 +568,43 @@ function HomePage() {
               )}
             </div>
 
+            {(activeChart === 'kline' || activeChart === 'kline2') && (
+              <div style={{ display: 'flex', gap: 4, padding: '4px 0', flexWrap: 'wrap' }}>
+                {[
+                  { key: 'daily', label: '日线' },
+                  { key: '60', label: '60分' },
+                  { key: '30', label: '30分' },
+                  { key: '15', label: '15分' },
+                  { key: '5', label: '5分' },
+                ].map((p) => (
+                  <button
+                    key={p.key}
+                    onClick={() => setKlinePeriod(p.key)}
+                    style={{
+                      padding: '3px 10px',
+                      fontSize: 12,
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      border: klinePeriod === p.key ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      background: klinePeriod === p.key ? 'var(--accent)' : 'transparent',
+                      color: klinePeriod === p.key ? '#fff' : 'var(--text-secondary)',
+                      fontWeight: klinePeriod === p.key ? 600 : 400,
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="chart-legend">
               <div className="legend-item">
                 <div className="legend-dot" style={{ background: '#fa3e3e' }}></div>
                 <span>B 买入</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-dot" style={{ background: '#f59e0b' }}></div>
+                <span>B? 预警</span>
               </div>
               <div className="legend-item">
                 <div className="legend-dot" style={{ background: '#3a8eff' }}></div>
@@ -577,10 +639,13 @@ function HomePage() {
               <button className={`sidebar-tab ${activeTab === 'backtest' ? 'active' : ''}`} onClick={() => setActiveTab('backtest')}>
                 回测结果
               </button>
+              <button className={`sidebar-tab ${activeTab === 'strategy' ? 'active' : ''}`} onClick={() => setActiveTab('strategy')}>
+                策略配置
+              </button>
             </div>
 
             <div className="sidebar-content">
-              {activeTab === 'signals' ? <SignalPanel stockData={activeStockData} /> : <BacktestPanel backtestResult={backtestResult} />}
+              {activeTab === 'signals' ? <SignalPanel stockData={activeStockData} /> : activeTab === 'strategy' ? <StrategyConfigPanel symbol={symbol} startDate={startDate} endDate={endDate} rsiPeriod={rsiPeriod} stockName={stockData?.name} /> : <BacktestPanel backtestResult={backtestResult} />}
             </div>
           </div>
         </div>

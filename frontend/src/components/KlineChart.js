@@ -39,8 +39,9 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
   if (!stockData?.data) return null;
 
   const data = stockData.data;
+  const isMinuteData = data.length > 0 && typeof data[0].date === 'string' && data[0].date.includes(' ');
   const dates = data.map((d) => d.date);
-  const mobileStartIndex = Math.max(dates.length - 30, 0);
+  const mobileStartIndex = Math.max(dates.length - (isMinuteData ? 60 : 30), 0);
   const candleData = data.map((d) => [d.open, d.close, d.low, d.high]);
 
   // 支撑位和压力位 markLine 配置
@@ -94,6 +95,28 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
         symbolSize: size,
         label: { show: true, formatter: 'B', color: '#fff', fontSize: isMobile ? 11 : 9, fontWeight: 'bold' },
         itemStyle: { color: THEME.up, borderColor: '#fff', borderWidth: isMobile ? 2 : 1, shadowBlur: 8, shadowColor: THEME.upShadow },
+      };
+    });
+
+  const buyAlertPoints = data
+    .filter((d) => d.buy_alert === 1)
+    .map((d) => {
+      const score = d.buy_score || 0;
+      const size = isMobile ? Math.max(18, Math.min(24, 14 + score * 40)) : Math.max(10, Math.min(16, 10 + score * 24));
+      return {
+        name: 'B?',
+        coord: [d.date, d.low],
+        symbol: 'circle',
+        symbolSize: size,
+        label: { show: true, formatter: 'B?', color: '#fff', fontSize: isMobile ? 10 : 8, fontWeight: 'bold' },
+        itemStyle: {
+          color: THEME.warning || '#f59e0b',
+          borderColor: '#fff',
+          borderWidth: isMobile ? 2 : 1,
+          borderType: 'dashed',
+          shadowBlur: 8,
+          shadowColor: 'rgba(245,158,11,0.6)',
+        },
       };
     });
 
@@ -181,6 +204,8 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
   let signalColor = '';
   let signalBg = '';
   let weakSellTag = '';
+  let alertTag = '';
+  let alertColor = '';
   const adviceText = stockData.trade_advice
     ? ` | 止损 ${stockData.trade_advice.stop_loss} 止盈 ${stockData.trade_advice.take_profit} 加仓 ${stockData.trade_advice.add_price}`
     : '';
@@ -201,6 +226,11 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
       }
       break;
     }
+    if (data[i].buy_alert === 1 && !alertTag) {
+      const dateStr = data[i].date.replace(/-/g, '.');
+      alertTag = isMobile ? `${dateStr} 买入预警` : dateStr + ' 买入预警（待二次确认）';
+      alertColor = THEME.warning || '#f59e0b';
+    }
   }
 
   const titleItems = [
@@ -217,10 +247,12 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
       },
     },
   ];
+  const lineH = isMobile ? 26 : 26;
+  let nextTop = isMobile ? 30 : 32;
   if (signalTag) {
     const titleItem = {
       left: isMobile ? 8 : 12,
-      top: isMobile ? 30 : 32,
+      top: nextTop,
     };
     if (weakSellTag && !isMobile) {
       titleItem.text = '{tag|' + signalTag + '}  {warn|' + weakSellTag + '}';
@@ -262,11 +294,34 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
       };
     }
     titleItems.push(titleItem);
+    nextTop += lineH;
+  }
+  if (alertTag) {
+    titleItems.push({
+      left: isMobile ? 8 : 12,
+      top: nextTop,
+      text: '{alert|' + alertTag + '}',
+      textStyle: {
+        rich: {
+          alert: {
+            backgroundColor: 'rgba(245, 158, 11, 0.18)',
+            color: alertColor,
+            fontSize: isMobile ? 12 : 12,
+            fontWeight: 'bold',
+            padding: isMobile ? [4, 9] : [3, 9],
+            borderRadius: 3,
+            borderColor: alertColor,
+            borderWidth: 1,
+          },
+        },
+      },
+    });
+    nextTop += lineH;
   }
   if (latestDivText && isMobile) {
     titleItems.push({
       left: 8,
-      top: signalTag ? 56 : 30,
+      top: nextTop,
       text: '{div|' + latestDivText + '}',
       textStyle: {
         rich: {
@@ -281,11 +336,12 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
         },
       },
     });
+    nextTop += lineH;
   }
   if (weakSellTag && isMobile) {
     titleItems.push({
       left: 8,
-      top: latestDivText ? 82 : 56,
+      top: nextTop,
       text: '{warn|' + weakSellTag + '}',
       textStyle: {
         rich: {
@@ -379,6 +435,9 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
             }
           }
         }
+        if (dataItem && dataItem.buy_alert === 1) {
+          html += `<div style="color:#f59e0b;margin-top:4px;font-weight:bold;padding:3px 6px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.5);border-radius:4px">⚠️ 买入预警（下跌趋势首次信号，需等待二次确认）</div>`;
+        }
         if (dataItem && dataItem.momentum_score !== null && dataItem.momentum_score !== undefined) {
           const momColor = themeGetMomentumColor(dataItem.momentum_score);
           html += `<div style="color:${momColor};margin-top:4px;font-weight:bold">动能: ${dataItem.momentum_score.toFixed(1)} (${dataItem.momentum_level || ''})</div>`;
@@ -398,13 +457,13 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
     legend: {
       data: legendData,
       textStyle: { color: THEME.textSecondary, fontSize: 11 },
-      top: signalTag ? 56 : 32,
+      top: nextTop,
       right: 10,
       itemWidth: 14,
       itemHeight: 2,
     },
     grid: [
-      { left: '8%', right: '8%', top: signalTag ? '22%' : '14%', height: '46%' },
+      { left: '8%', right: '8%', top: nextTop > 57 ? '22%' : nextTop > 33 ? '18%' : '14%', height: '46%' },
       { left: '8%', right: '8%', top: '66%', height: '15%' },
       { left: '8%', right: '8%', top: '84%', height: '12%' },
     ],
@@ -428,7 +487,18 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
         data: dates,
         gridIndex: 2,
         axisLine: { lineStyle: { color: THEME.border } },
-        axisLabel: { color: THEME.textSecondary, fontSize: 10 },
+        axisLabel: {
+          color: THEME.textSecondary,
+          fontSize: 10,
+          interval: isMinuteData ? Math.max(0, Math.floor(data.length / 10) - 1) : 0,
+          formatter: isMinuteData
+            ? (value) => {
+                const parts = value.split(' ');
+                if (parts.length === 2) return parts[0].substring(5) + '\n' + parts[1];
+                return value;
+              }
+            : undefined,
+        },
       },
     ],
     yAxis: [
@@ -484,7 +554,7 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           borderColor0: THEME.down,
           borderWidth: 1,
         },
-        markPoint: { data: [...buyPoints, ...sellPoints, ...latestDivergencePoints] },
+        markPoint: { data: [...buyPoints, ...buyAlertPoints, ...sellPoints, ...latestDivergencePoints] },
         markLine: {
           symbol: 'none',
           data: [
@@ -633,12 +703,12 @@ export default function KlineChart({ stockData, symbol, titleSuffix = '', showLa
           title: [{ textStyle: { fontSize: 13 } }],
           legend: { show: false },
           grid: [
-            { left: 8, right: 44, top: weakSellTag ? (latestDivText ? 108 : 84) : (latestDivText ? 84 : (signalTag ? 60 : 36)), height: weakSellTag ? (latestDivText ? '62%' : '70%') : '74%' },
+            { left: 8, right: 44, top: 36 + (titleItems.length - 1) * 24, height: `${Math.max(50, 74 - (titleItems.length - 1) * 6)}%` },
             { left: 8, right: 44, top: 0, height: 0 },
             { left: 8, right: 44, top: 0, height: 0 },
           ],
           xAxis: [
-            { min: mobileStartIndex, max: dates.length - 1, axisLabel: { show: true, color: THEME.textSecondary, fontSize: 10 } },
+            { min: mobileStartIndex, max: dates.length - 1, axisLabel: { show: true, color: THEME.textSecondary, fontSize: 10, interval: isMinuteData ? Math.max(0, Math.floor((dates.length - mobileStartIndex) / 6) - 1) : 0, formatter: isMinuteData ? (value) => { const p = value.split(' '); return p.length === 2 ? p[0].substring(5) + ' ' + p[1] : value; } : undefined } },
             { show: false },
             { show: false },
           ],
